@@ -7,6 +7,7 @@ module Data.Stdf.WaferMap ( XyBin(..)
                           , xybsToGrid
                           , gridToString 
                           , stdfToWaferMapString 
+                          , map2d
                           ) where
 
 import Data.Stdf
@@ -22,7 +23,7 @@ data XyBin = XyBin { x :: Int
                    , y :: Int
                    , bin :: Int }
            | Missing
-    deriving Show
+    deriving (Show, Eq)
 
 stdfToXyBin :: Stdf -> [XyBin]
 stdfToXyBin (prr@(Prr { xCoord = Just xc
