@@ -9,6 +9,13 @@ import Foreign.C.Types
 import Data.Text.Lazy
 import GHC.Generics hiding (U1, C1)
 import Data.Aeson
+import Data.Time.LocalTime
+
+-- Time is local unix time. Shouldn't they put the time zone in the file
+-- in order for this to have any meaning? What if the data isn't being parsed
+-- in the same time zone as it was generated? It will be as if the tester
+-- was transported through time and space to wherever I am. I think I'll
+-- just leave it alone so times can be Word32 representing Unix time
 
 type U1 = Word8  -- unsigned 1 byte
 type U2 = Word16 -- unsigned 2 bytes
@@ -21,7 +28,7 @@ type R8 = Double -- CDouble
 type C1 = Char
 
 instance ToJSON Rec
-instance ToJSON PartFlg
+instance ToJSON PartFlag
 instance ToJSON GdrField
 instance ToJSON TestType
 instance ToJSON WaferUnits
@@ -41,52 +48,19 @@ data Header = Header
 type Stdf = [Rec]
 
 -- The mother of all datatypes
-data Rec= Raw { raw :: Text } -- base64 TODO: maybe don't bother. what's this good for?
+data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother. what's this good for?
         | Far { cpuType  :: !U1
-            , stdfVer  :: !U1 }
-        | Prr { headNum  :: !U1
-                , siteNum  :: !U1
-                , partFlg  :: !PartFlg
-                , numTest  :: !U2
-                , hardBin  :: !U2
-                , softBin  :: Maybe U2
-                , xCoord   :: Maybe I2
-                , yCoord   :: Maybe I2
-                , testTime :: Maybe U4
-                , partID   :: Maybe Text
-                , partTxt  :: Maybe Text
-                , partFix  :: Maybe Text }
-        | Pir { pirHeadNum :: !U1
-              , pirSiteNum :: !U1 }
-        | Dtr { textDat :: Text }
-        | Hbr { prrHeadNum :: !U1
-              , prrSiteNum :: !U1
-              , hbinNum :: !U2
-              , hbinCnt :: !U4
-              , hbinPassFail :: Maybe C1 -- Character, ' ' means Nothing
-              , hbinName :: Maybe Text }
-        | Wrr { wrrHeadNum :: !U1
-              , siteGrp :: Maybe U1  -- 255 means Nothing
-              , finishTime :: !U4
-              , partCount :: !U4
-              , retestCount :: Maybe U4 -- 4,294,967,295 -> Nothing
-              , abortCount :: Maybe U4 -- 4,294,967,295 -> Nothing
-              , goodCount :: Maybe U4 -- 4,294,967,295 -> Nothing
-              , functionalCount :: Maybe U4 -- 4,294,967,295 -> Nothing
-              , waferId :: Maybe Text -- length 0 -> Nothing
-              , fabWaferId :: Maybe Text -- length 0 -> Nothing
-              , waferFrameId :: Maybe Text -- length 0 -> Nothing
-              , waferMaskId :: Maybe Text -- length 0 -> Nothing
-              , userDescription :: Maybe Text -- length 0 -> Nothing
-              , execDescription :: Maybe Text }
+              , stdfVersion  :: !U1 }
+        | Atr { modificationTime :: !U4
+              , commandLine :: Maybe Text }
         | Mir { setupTime :: !U4
               , startTime :: !U4
-              , stationNum :: !U1
-              , modeCode :: Maybe C1 -- ' '
-              , retestCode :: Maybe C1 -- ' '
+              , station :: !U1
+              , modeCode :: Maybe C1 -- TODO: MODE_COD record
+              , retestCode :: Maybe C1 -- TODO: RTST_COD record
               , protectionCode :: Maybe C1 -- ' '
               , burninTime :: Maybe U2 -- 65,535
-              , commandMode :: Maybe C1 -- ' '
+              , commandCode :: Maybe C1 -- ' '
               , lotId :: Text
               , partType :: Text
               , nodeName :: Text
@@ -117,50 +91,50 @@ data Rec= Raw { raw :: Text } -- base64 TODO: maybe don't bother. what's this go
               , romCodeId :: Maybe Text
               , testerSerialNum :: Maybe Text
               , supervisorName :: Maybe Text }
-        | Atr { modificationTime :: !U4
-              , commandLine :: Maybe Text }
         | Mrr { finishTime :: !U4
               , lotDisposition :: Maybe C1
               , userDescription :: Maybe Text
               , execDescription :: Maybe Text }
-        | Pcr { pcrHeadNum :: !U1
-              , pcrSiteNum :: !U1
+        | Pcr { head :: !U1
+              , site :: !U1
               , partCount :: !U4
               , retestCount :: Maybe U4
               , abortCount :: Maybe U4
               , goodCount :: Maybe U4
               , functionalCount :: Maybe U4 }
-        | Sbr { sbrHeadNum :: !U1
-              , sbrSiteNum :: !U1
-              , softBinNum :: !U2
-              , softBinCount :: !U4
-              , softBinPassFail :: Maybe C1
-              , softBinName :: Maybe Text }
-        | Pmr { pinIndex :: !U2
+        | Hbr { head :: !U1
+              , site :: !U1
+              , bin :: !U2
+              , binCount :: !U4
+              , passFail :: PassFail -- TODO: HBIN_PF
+              , name :: Maybe Text }
+        | Sbr { head :: !U1
+              , site :: !U1
+              , bin :: !U2
+              , binCount :: !U4
+              , passFail :: PassFail
+              , name :: Maybe Text }
+        | Pmr { index :: !U2
               , channelType :: Maybe U2
               , channelName :: Maybe Text
               , physicalName :: Maybe Text
               , logicalName :: Maybe Text
-              , pmrHeadNum :: !U1
-              , pmrSiteNum :: !U1 }
-        | Pgr { groupIndex :: !U2
-              , groupName :: Maybe Text
-              -- , indexCount :: !U2 -- maybe irrelevant; just for parsing
-              , pmrIndecies :: [U2] } -- list of Pmr instead of refering to indecies
-        | Plr { -- groupCount :: !U2 -- parsing only
-                groupIndecies :: [U2]
-              , groupModes :: Maybe [U2]
-              , groupRadixes :: Maybe [U1]
+              , head :: !U1
+              , site :: !U1 }
+        | Pgr { index :: !U2
+              , name :: Maybe Text
+              , pinIndecies :: Maybe [U2] } -- list of pins instead of refering to indecies
+        | Plr { groupIndecies :: [U2]
+              , groupModes :: Maybe [GroupMode] -- TODO: GroupMode
+              , groupRadixes :: Maybe [GroupRadix] -- TODO: GroupRadix
               , programStateChars :: Maybe [Text] -- combine CharR and CharL at parse?
               , returnStateChars :: Maybe [Text]
               , programStateCharsLeft :: Maybe [Text]
               , returnStateCharsLeft :: Maybe [Text] }
-        | Rdr { -- numBins :: !U2  -- If 0 all bins are retested and retestBins is Nothing
-                retestBins :: [U2] }
-        | Sdr { sdrHeadNum :: !U1
-              , sdrSiteGrp :: !U1
-              -- , siteCount :: !U1
-              , siteNums :: [U1]
+        | Rdr { retestBins :: [U2] }
+        | Sdr { head :: !U1
+              , siteGroup :: !U1
+              , sites :: [U1]
               , handlerType :: Maybe Text
               , handlerId :: Maybe Text
               , probeCardType :: Maybe Text
@@ -177,10 +151,24 @@ data Rec= Raw { raw :: Text } -- base64 TODO: maybe don't bother. what's this go
               , laserId :: Maybe Text
               , extraType :: Maybe Text
               , extraId :: Maybe Text }
-        | Wir { wirHeadNum :: !U1
-              , wirSiteGrp :: Maybe U1 -- 255 -> Nothing
-              , wirStartTime :: !U4
-              , wirWaferId :: Maybe Text }
+        | Wir { head :: !U1
+              , siteGroup :: Maybe U1 -- 255 -> Nothing
+              , startTime :: !U4
+              , waferId :: Maybe Text }
+        | Wrr { head :: !U1
+              , siteGroup :: Maybe U1  -- 255 means Nothing
+              , finishTime :: !U4
+              , partCount :: !U4
+              , retestCount :: Maybe U4 -- 4,294,967,295 -> Nothing
+              , abortCount :: Maybe U4 -- 4,294,967,295 -> Nothing
+              , goodCount :: Maybe U4 -- 4,294,967,295 -> Nothing
+              , functionalCount :: Maybe U4 -- 4,294,967,295 -> Nothing
+              , waferId :: Maybe Text -- length 0 -> Nothing
+              , fabWaferId :: Maybe Text -- length 0 -> Nothing
+              , waferFrameId :: Maybe Text -- length 0 -> Nothing
+              , waferMaskId :: Maybe Text -- length 0 -> Nothing
+              , userDescription :: Maybe Text -- length 0 -> Nothing
+              , execDescription :: Maybe Text }
         | Wcr { waferSize :: Maybe R4 -- 0 -> Nothing
               , dieHeight :: Maybe R4
               , dieWidth :: Maybe R4
@@ -190,10 +178,24 @@ data Rec= Raw { raw :: Text } -- base64 TODO: maybe don't bother. what's this go
               , centerY :: Maybe I2
               , positiveXdirection :: Maybe Direction
               , positiveYdirection :: Maybe Direction }
-        | Tsr { tsrHeadNum :: !U1
-              , tsrSiteNum :: !U1
-              , tsrTestType :: Maybe TestType
-              , tsrTestNum :: !U4
+        | Pir { head :: !U1
+              , site :: !U1 }
+        | Prr { head  :: !U1
+                , site  :: !U1
+                , partFlag  :: !PartFlag
+                , numTestsExecuted  :: !U2
+                , hardBin  :: !U2
+                , softBin  :: Maybe U2
+                , xCoord   :: Maybe I2
+                , yCoord   :: Maybe I2
+                , testTime :: Maybe U4
+                , partID   :: Maybe Text
+                , partTxt  :: Maybe Text
+                , partFix  :: Maybe Text }
+        | Tsr { head :: !U1
+              , site :: !U1
+              , testType :: Maybe TestType
+              , test :: !U4
               , execCount :: Maybe U4
               , failCount :: Maybe U4
               , alarmCount :: Maybe U4
@@ -206,47 +208,48 @@ data Rec= Raw { raw :: Text } -- base64 TODO: maybe don't bother. what's this go
               , valueMax :: Maybe R4
               , valueSum :: Maybe R4
               , valueSumOfSquares :: Maybe R4 }
-        | Ptr { ptrTestNum :: !U4
-              , ptrHeadNum :: !U1
-              , ptrSiteNum :: !U1
-              , testFlags :: !U1 -- further parsing bits
-              , parametricFlags :: !U1 -- further parsing bits
+        | Ptr { test :: !U4
+              , head :: !U1
+              , site :: !U1
+              , testFlags :: [TestFlags] -- B1 bitfield further parsing bits
+              , parametricFlags :: [ParametricFlags] -- B1 bitfield further parsing bits
               , result :: Maybe R4
               , testText :: Maybe Text
               , alarmId :: Maybe Text
-              , optionalInfo :: Maybe OptionalInfo }
-        | Mpr { mprTestNum :: !U4
-              , mprHeadNum :: !U1
-              , mprSiteNum :: !U1
-              , mprTestFlags :: !U1 -- further parsing bits
-              , mprParametricFlags :: !U1 -- further parsing bits
-              , stateCount :: U2
-              , resultCount :: U2
-              , states :: Maybe Text -- array of states? stateCount states
-              , results :: Maybe [R4] -- resultCount results
-              , mprTestText :: Maybe Text
-              , mprAlarmId :: Maybe Text
+              , optionalInfo :: Maybe OptionalInfo } -- TODO: better name
+        | Mpr { test :: !U4
+              , head :: !U1
+              , site :: !U1
+              , testFlags :: [TestFlags]
+              , parametricFlags :: [ParametricFlags]
+              -- j , stateCount :: U2
+              -- k , resultCount :: U2
+              , states :: Maybe Text -- Nibbles! array of states? j states
+              , results :: Maybe [R4] -- k results
+              , testText :: Maybe Text
+              , alarmId :: Maybe Text
               -- , OPT_FLG B1 optional stuff to parse
-              , mprResultExp :: Maybe I1
-              , mprLowLimitExp :: Maybe I1
-              , mprHighLimitExp :: Maybe I1
-              , mprLowTestLimit :: Maybe R4
-              , mprHighTestLimit :: Maybe R4
+              , resultExp :: Maybe I1  -- TODO: put mostly in OptionalInfo
+              , lowLimitExp :: Maybe I1
+              , highLimitExp :: Maybe I1
+              , lowLimit :: Maybe R4
+              , highLimit :: Maybe R4
               , startingInput :: Maybe R4
               , incrementInput :: Maybe R4
-              , returnIndecies :: Maybe [U2]
-              , mprUnits :: Maybe Text
-              , mprPrintfResultFmt :: Maybe Text
-              , mprPrintfLowLimitFmt :: Maybe Text
-              , mprPrintfHighLimitFmt :: Maybe Text
-              , mprLowSpecLimit :: Maybe R4
-              , mprHighSpecLimit :: Maybe R4 }
-        | Ftr { ftrTestNum :: !U4
-              , ftrHeadNum :: !U1
-              , ftrSiteNum :: !U1
-              , ftrTestFlags :: !U1 -- 8 bit packed binary
+              , returnPinIndecies :: Maybe [U2] -- k indecies
+              , units :: Maybe Text
+              , unitsInputCondition  :: Maybe Text
+              , printfResultFmt :: Maybe Text
+              , printfLowLimitFmt :: Maybe Text
+              , printfHighLimitFmt :: Maybe Text
+              , lowSpecLimit :: Maybe R4
+              , highSpecLimit :: Maybe R4 }
+        | Ftr { test :: !U4
+              , head :: !U1
+              , site :: !U1
+              , testFlags :: [TestFlags]
               -- , optFlg :: !U1 -- 8 bit packed binary -- record may have ended by here
-              , cycleCount :: Maybe U4
+              , cycleCount :: Maybe U4    -- To Optional Info
               , relativeVectorAddr :: Maybe U4
               , numFailingPins :: Maybe U4
               , xLogicalFailureAddr :: Maybe I4
@@ -254,26 +257,46 @@ data Rec= Raw { raw :: Text } -- base64 TODO: maybe don't bother. what's this go
               , offsetFromVector :: Maybe I2
               -- j U2
               -- k U2
-              , pmrIndecies :: Maybe [U2] -- j x U2
+              , pinIndecies :: Maybe [U2] -- j x U2
               , returnedStates :: Maybe [U1] -- j NIBBLES!
               , pgmStateIndecies :: Maybe [U2] -- k x U2
               , pgmStates :: Maybe [U1] -- k NIBBLES!
               , failPin :: Maybe [U1] -- bitfield!
-              , vectorName :: mcn
-              , timeSetName :: mcn
-              , opCode :: mcn
-              , ftrText :: mcn
-              , ftrAlarmId :: mcn
-              , progText :: mcn
-              , resultText :: mcn
-              , patternGenNum :: Maybe U1  -- 255
+              , vector :: Maybe Text
+              , timeSet :: Maybe Text
+              , opCode :: Maybe Text
+              , label :: Maybe Text
+              , alarmId :: Maybe Text
+              , programText :: Maybe Text
+              , resultText :: Maybe Text
+              , patternGen :: Maybe U1  -- 255
               , enabledPins :: Maybe [U1] -- bitfield!
               } -- TODO: this is a long silly record. there's a bunch more things
         | Bps { sequencerName :: Maybe Text }  -- Begin Program Secion
         | Eps -- End Program Section: no payload
         | Gdr GdrField
+        | Dtr { textDat :: Text }
           deriving (Generic, Show)
 
+data TestFlag = Alarm 
+              | Invalid
+              | Unreliable
+              | Timeout
+              | NotExecuted
+              | Aborted
+              | Pass
+              | Fail
+
+data ParametricFlag = ScaleError
+                    | DriftError
+                    | Oscillation
+                    | FailHighLimit
+                    | FailLowLimit
+                    | PassAlternateLimits
+                    -- Not bothering with bits 6 & 7 because stupid
+
+-- TODO: Another pass at scaling flags
+-- Maybe better as sum type
 data OptionalInfo =
             OptionalInfo {
                 resultExp :: Maybe I1
@@ -324,9 +347,7 @@ data GdrField = GPad -- discard
               | GNibble !U1 -- a nibble? are you fucking kidding me?
               deriving (Generic, Show)
 
-
-
-data PartFlg = PartFlg { supersedesPartId :: Bool -- 1 bit
+data PartFlag = PartFlag { supersedesPartId :: Bool -- 1 bit
                        , supersedesXY :: Bool -- 1 bit
                        , abnormalEnd :: Bool
                        , failed :: Bool

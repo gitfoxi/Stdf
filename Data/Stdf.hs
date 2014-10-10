@@ -324,9 +324,9 @@ getFtr = do
     k <- U2
 
 -- TODO Nothing if j/k == 0
-    rtnIndx <- replicateM j U2
+    rtnIndx <- replicateM j u2
     rtnStat <- getNibbles j
-    pgmIndx <- replicateM k U2
+    pgmIndx <- replicateM k u2
     pgmStat <- getNibbles k
 
     failPin <- getBitField
@@ -479,6 +479,8 @@ getStdf = do
         else do record   <- nextRec
                 recs <- getStdf
                 return (record:recs)
+
+-- TODO: parseFile which detects and decompresses .gz per the spec
 
 parse :: ByteString -> Stdf
 parse = runGet getStdf
