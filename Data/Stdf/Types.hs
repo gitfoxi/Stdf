@@ -100,21 +100,21 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , lotDisposition :: Maybe C1
               , userDescription :: Maybe Text
               , execDescription :: Maybe Text }
-        | Pcr { head :: !U1
-              , site :: !U1
+        | Pcr { headId :: !U1
+              , siteId :: !U1
               , partCount :: !U4
               , retestCount :: Maybe U4
               , abortCount :: Maybe U4
               , goodCount :: Maybe U4
               , functionalCount :: Maybe U4 }
-        | Hbr { head :: !U1
-              , site :: !U1
+        | Hbr { headId :: !U1
+              , siteId :: !U1
               , bin :: !U2
               , binCount :: !U4
               , passFailBin :: PassFailBin -- TODO: HBIN_PF
               , name :: Maybe Text }
-        | Sbr { head :: !U1
-              , site :: !U1
+        | Sbr { headId :: !U1
+              , siteId :: !U1
               , bin :: !U2
               , binCount :: !U4
               , passFail :: PassFailBin
@@ -124,8 +124,8 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , channelName :: Maybe Text
               , physicalName :: Maybe Text
               , logicalName :: Maybe Text
-              , head :: !U1
-              , site :: !U1 }
+              , headId :: !U1
+              , siteId :: !U1 }
         | Pgr { index :: !U2
               , name :: Maybe Text
               , pinIndecies :: [U2] } -- list of pins instead of refering to indecies
@@ -143,7 +143,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               -- , programStateCharsLeft :: [Maybe Char]
               -- , returnStateCharsLeft :: [Maybe Char] }
         | Rdr { retestBins :: [U2] }
-        | Sdr { head :: !U1
+        | Sdr { headId :: !U1
               , siteGroup :: !U1
               , sites :: [U1]
               , handlerType :: Maybe Text
@@ -162,11 +162,11 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , laserId :: Maybe Text
               , extraType :: Maybe Text
               , extraId :: Maybe Text }
-        | Wir { head :: !U1
+        | Wir { headId :: !U1
               , siteGroup :: !U1 -- 255 -> Nothing -- feature removed
               , startTime :: !U4
               , waferId :: Maybe Text }
-        | Wrr { head :: !U1
+        | Wrr { headId :: !U1
               , siteGroup :: !U1  -- 255 means Nothing
               , finishTime :: !U4
               , partCount :: !U4
@@ -189,10 +189,10 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , centerY :: Maybe I2
               , positiveXdirection :: Maybe Direction
               , positiveYdirection :: Maybe Direction }
-        | Pir { head :: !U1
-              , site :: !U1 }
-        | Prr { head  :: !U1
-                , site  :: !U1
+        | Pir { headId :: !U1
+              , siteId :: !U1 }
+        | Prr { headId  :: !U1
+                , siteId  :: !U1
                 , partFlag  :: !PartFlag
                 , numTestsExecuted  :: !U2
                 , hardBin  :: !U2
@@ -203,10 +203,10 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
                 , partID   :: Maybe Text
                 , partTxt  :: Maybe Text
                 , partFix  :: Maybe Text }
-        | Tsr { head :: !U1
-              , site :: !U1
+        | Tsr { headId :: !U1
+              , siteId :: !U1
               , testType :: Maybe TestType
-              , test :: !U4
+              , testId :: !U4
               , execCount :: Maybe U4
               , failCount :: Maybe U4
               , alarmCount :: Maybe U4
@@ -219,23 +219,23 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , valueMax :: Maybe R4
               , valueSum :: Maybe R4
               , valueSumOfSquares :: Maybe R4 }
-        | Ptr { test :: !U4
-              , head :: !U1
-              , site :: !U1
+        | Ptr { testId :: !U4
+              , headId :: !U1
+              , siteId :: !U1
               , testFlags :: [TestFlag] -- B1 bitfield further parsing bits
               , parametricFlags :: [ParametricFlag] -- B1 bitfield further parsing bits
               , result :: Maybe R4
               , testText :: Maybe Text
               -- , alarmId :: Maybe Text -> optionalInfo
               , info :: [OptionalInfo] } -- TODO: better name
-        | Mpr { test :: !U4
-              , head :: !U1
-              , site :: !U1
+        | Mpr { testId :: !U4
+              , headId :: !U1
+              , siteId :: !U1
               , testFlags :: [TestFlag]
               , parametricFlags :: [ParametricFlag]
               -- j , stateCount :: U2
               -- k , resultCount :: U2
-              , states :: [Text] -- Nibbles! array of states? j states
+              , states :: [U1] -- Nibbles! array of states? j states
               , results :: [R4] -- k results
               , testText :: Maybe Text
               , info :: [OptionalInfo] }
@@ -256,9 +256,9 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               -- , printfHighLimitFmt :: Maybe Text
               -- , lowSpecLimit :: Maybe R4
               -- , highSpecLimit :: Maybe R4 }
-        | Ftr { test :: !U4
-              , head :: !U1
-              , site :: !U1
+        | Ftr { testId :: !U4
+              , headId :: !U1
+              , siteId :: !U1
               , testFlags :: [TestFlag]
               , info :: [OptionalInfo]
               -- -- , optFlg :: !U1 -- 8 bit packed binary -- record may have ended by here
@@ -312,27 +312,30 @@ data Radix = DefaultRadix
            | OtherRadix U1
            deriving (Generic, Show)
 
-data TestFlag = Alarm 
-              | Invalid
-              | Unreliable
-              | Timeout
-              | NotExecuted
-              | Aborted
-              | Pass
-              | Fail
-              deriving (Generic, Show)
+data TestFlag = Alarm       -- bit 0
+              | Invalid     -- bit 1
+              | Unreliable  -- bit 2
+              | Timeout     -- bit 3
+              | NotExecuted -- bit 4
+              | Aborted     -- bit 5
+              | InValid     -- bit 6
+              | Pass        -- bit 7 == 0
+              | Fail        -- bit 7
+              deriving (Generic, Show, Eq, Enum)
 
 data PassFailBin = PassBin | FailBin | UnknownBin | OtherBin Char
     deriving (Generic, Show)
 
-data ParametricFlag = ScaleError
-                    | DriftError
-                    | Oscillation
-                    | FailHighLimit
-                    | FailLowLimit
-                    | PassAlternateLimits
-                    -- Not bothering with bits 6 & 7 because stupid
-                    deriving (Generic, Show)
+data ParametricFlag = ScaleError          -- bit 0
+                    | DriftError          -- bit 1
+                    | Oscillation         -- bit 2
+                    | FailHighLimit       -- bit 3
+                    | FailLowLimit        -- bit 4
+                    | PassAlternateLimits -- bit 5
+                    | PassOnEqLowLimit    -- bit 6
+                    | PassOnEqHighLimit   -- bit 7
+                    -- bits 6 & 7 seem stupid
+                    deriving (Generic, Show, Eq, Enum)
 
 -- TODO: Another pass at scaling flags
 -- Maybe better as sum type

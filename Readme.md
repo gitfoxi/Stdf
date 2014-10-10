@@ -16,7 +16,9 @@ The Data.Stdf advantage
 Install
 -------
 
-    cabal install stdf -- Is a TODO. Just clone and build the package
+    cabal install stdf
+
+Or for the latest revision, clone and build from here.
 
 Usage
 -----
@@ -68,7 +70,5 @@ File: test.stdf
 Now the Bad News
 ----------------
 
-Data.Stdf currently only parses the PRR record because that's all I needed.
-Well, the code is short and sweet so it won't be too much work to add support
-for some more interesting records. I can't think of why I'd bother with all of
-the rarely-used uninteresting ones. But maybe if I'm bored.
+Not yet covering all fields of all Stdf records.  PLR and GDR are ignored and
+several interesting optional fields in PTR, MPR and FTR are not yet processed.

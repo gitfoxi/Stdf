@@ -9,16 +9,16 @@ module Data.Stdf ( parse
                  ) where
 
 import Data.Stdf.Types
-import Data.Binary.Get
-import Data.ByteString.Lazy.Char8 as BL hiding (show)
-import Data.Bits (testBit, (.&.))
+import Data.Binary.Get hiding (Fail)
+import Data.ByteString.Lazy.Char8 as BL hiding (show, elem, notElem, all, concatMap, concat)
+import Data.Bits (testBit, (.&.), shiftR)
 import Control.Applicative
 import Prelude hiding (show, Left, Right)
 import Text.Show
 import Control.Monad
 import qualified Data.ByteString.Base64.Lazy as Base64
 import Data.Text.Lazy.Encoding
-import Data.Text.Lazy
+import Data.Text.Lazy hiding (all, concatMap, concat)
 import GHC.Char
 import Data.Sequence (replicateA)
 import Data.Ix (range)
@@ -237,18 +237,58 @@ getTsr = Tsr <$> u1 <*> u1 <*> getTestType <*> u4 <*> mu4 <*> mu4 <*> mu4
                charToTestType ' ' = Nothing
                charToTestType x = Just $ OtherTestType x
 
-{-
+decodeTestFlags :: U1 -> [TestFlag]
+decodeTestFlags fl = if fl == 0
+                        then [Pass]
+                        else mkFlagList mapTf fl
+                     where
+                         mapTf 0 = Alarm
+                         mapTf 1 = Invalid     -- bit 1
+                         mapTf 2 = Unreliable  -- bit 2
+                         mapTf 3 = Timeout     -- bit 3
+                         mapTf 4 = NotExecuted -- bit 4
+                         mapTf 5 = Aborted     -- bit 5
+                         mapTf 6 = InValid     -- bit 6
+                         mapTf 7 = Fail        -- bit 7
+
+decodeParametricFlags :: U1 -> [ParametricFlag]
+decodeParametricFlags = mkFlagList mapPf
+    where
+        mapPf 0 =  ScaleError -- I could probably get this from Enum duh
+        mapPf 1 =  DriftError          -- bit 1
+        mapPf 2 =  Oscillation         -- bit 2
+        mapPf 3 =  FailHighLimit       -- bit 3
+        mapPf 4 =  FailLowLimit        -- bit 4
+        mapPf 5 =  PassAlternateLimits -- bit 5
+        mapPf 6 =  PassOnEqLowLimit    -- bit 6
+        mapPf 7 =  PassOnEqHighLimit   -- bit 7
+
+mkFlagList :: (Int -> a) -> U1 -> [a]
+mkFlagList func flags = [func bi | bi <- range (0, 7), testBit flags bi]
+
+getDecodeFlags :: (U1 -> [a]) -> Get [a]
+getDecodeFlags decodeF = do
+    fl <- u1
+    return $ decodeF fl
+
+getTestFlags :: Get [TestFlag]
+getTestFlags = getDecodeFlags decodeTestFlags
+
+getParametricFlags :: Get [ParametricFlag]
+getParametricFlags = getDecodeFlags decodeParametricFlags
+
 getPtr :: Get Rec
 getPtr = do
         ptrTestNum <- u4
         ptrHeadNum <- u1
         ptrSiteNum <- u1
-        testFlags <- u1 -- getTestFlags -- u1
-        parametricFlags <- u1 -- getParametricFlags -- u1
-        result <- r4 -- depends on testFlags:: Maybe R4
+        testFlags <- getTestFlags
+        parametricFlags <- getParametricFlags
+        result <- r4 -- depends on testFlags and parametric flags
         testText <- mcn
-        alarmId <- mcn
-        optionalInfo <- getOptionalInfo
+        alarmId <- mcn -- part of optionalInfo now
+        -- optionalInfo <- getOptionalInfo
+        let optionalInfo = [] -- TODO
         let mresult = if validResult testFlags parametricFlags
                         then Just result
                         else Nothing
@@ -260,47 +300,77 @@ getPtr = do
                       parametricFlags
                       mresult
                       testText
-                      alarmId
                       optionalInfo
         where
-            validResult tf pf = (tf .&. 0x3f) .&. (pf .&. 0x3) == 0
+            validResult tf pf = all (`elem` [Pass, Fail]) tf 
+                             && all (`notElem` [ScaleError, DriftError, Oscillation]) pf
+{-
+            getOptionalInfo :: Get (Maybe OptionalInfo)
+            getOptionalInfo = do
+                    -- check we're not at the end of the buffer
+                    noInfo <- isEmpty
+                    if noInfo 
+                        then return Nothing 
+                        else do
+                            optinfo <- getOptionalInfo'
+                            return $ Just optinfo
 
-getOptionalInfo :: Get (Maybe OptionalInfo)
-getOptionalInfo = do
-        -- check we're not at the end of the buffer
-        noInfo <- isEmpty
-        if noInfo 
-            then return Nothing 
-            else do
-                optinfo <- getOptionalInfo'
-                return $ Just optinfo
+            getOptionalInfo' :: Get OptionalInfo
+            getOptionalInfo' = do
+                optFlag <- u1 -- getOptFlag
 
-getOptionalInfo' :: Get OptionalInfo
-getOptionalInfo' = do
-    optFlag <- u1 -- getOptFlag
+                let [ invalidResultExp,      -- bit 0
+                    _,                     -- bit 1
+                    invalidLowSpecLimit,   -- bit 2
+                    invalidHighSpecLimit,  -- bit 3
+                    invalidLowLimit,       -- bit 4
+                    invalidHighLimit,      -- bit 5
+                    invalidLowTestLimit,   -- bit 6
+                    invalidHighTestLimit ] -- bit 7
+                    = Prelude.map (testBit optFlag) $ range (0,7)
 
-    let [ invalidResultExp,      -- bit 0
-          _,                     -- bit 1
-          invalidLowSpecLimit,   -- bit 2
-          invalidHighSpecLimit,  -- bit 3
-          invalidLowLimit,       -- bit 4
-          invalidHighLimit,      -- bit 5
-          invalidLowTestLimit,   -- bit 6
-          invalidHighTestLimit ] -- bit 7
-          = Prelude.map (testBit optFlag) $ range (0,7)
+                let invalidLowTest  = invalidLowLimit || invalidLowTestLimit
+                let invalidHighTest = invalidHighLimit || invalidHighTestLimit
 
-    let invalidLowTest  = invalidLowLimit || invalidLowTestLimit
-    let invalidHighTest = invalidHighLimit || invalidHighTestLimit
-
-    OptionalInfo <$> getOnFalse invalidResultExp i1
-                 <*> getOnFalse invalidLowTest i1
-                 <*> getOnFalse invalidHighTest i1
-                 <*> getOnFalse invalidLowTest r4
-                 <*> getOnFalse invalidHighTest r4
-                 <*> mcn <*> mcn <*> mcn <*> mcn 
-                 <*> getOnFalse invalidLowSpecLimit r4
-                 <*> getOnFalse invalidHighSpecLimit r4
+                OptionalInfo <$> getOnFalse invalidResultExp i1
+                            <*> getOnFalse invalidLowTest i1
+                            <*> getOnFalse invalidHighTest i1
+                            <*> getOnFalse invalidLowTest r4
+                            <*> getOnFalse invalidHighTest r4
+                            <*> mcn <*> mcn <*> mcn <*> mcn 
+                            <*> getOnFalse invalidLowSpecLimit r4
+                            <*> getOnFalse invalidHighSpecLimit r4
 -}
+
+getMpr :: Get Rec
+getMpr = do
+    testNum <- u4
+    headNum <- u1
+    siteNum <- u1
+    testFlg <- getTestFlags
+    parmFlg <- getParametricFlags
+    j <- fromIntegral <$> u2
+    k <- fromIntegral <$> u2
+    rtnStat <- getNibbles j :: Get [U1]
+    rtnRslt <- replicateM k r4
+    testTxt <- mcn
+    let info = [] -- TODO: parse OptionalInfo
+
+    return $ Mpr testNum headNum siteNum testFlg parmFlg rtnStat rtnRslt testTxt info
+
+-- Take a list of bytes and split into exactly n nibbles
+fromNibbles :: [U1] -> Int -> [U1]
+fromNibbles [byte] 0         = []
+fromNibbles [byte] 1         = [0xF .&. byte]
+fromNibbles [byte] 2         = [0xF .&. byte, byte `shiftR` 4]
+fromNibbles (byte:bytes) n = 0xF .&. byte : byte `shiftR` 4 : fromNibbles bytes (n - 2)
+
+getNibbles :: Int -> Get [U1]
+getNibbles nnibs = do
+    let nbytes = nnibs `div` 2 + if odd nnibs then 1 else 0
+    bytes <- replicateM nbytes u1
+    return $ fromNibbles bytes nnibs
+
 
 getOnFalse :: Bool -> Get a -> Get (Maybe a)
 getOnFalse cond get =
@@ -308,13 +378,13 @@ getOnFalse cond get =
             then return Nothing
             else Just <$> get
 
-{-
 getFtr :: Get Rec
 getFtr = do
     testNum <- u4
     headNum <- u1
     siteNum <- u1
-    testFlag <- u1 -- TODO: decode
+    testFlag <- getTestFlags
+    {-
     optFlag <- u1
 
     let [noCycleCnt,
@@ -332,8 +402,8 @@ getFtr = do
     yFail    <- getOnFalse noXYFail i4
     vectOff  <- getOnFalse noVectOff i2
 
-    j <- U2
-    k <- U2
+    j <- fromIntegral <$> u2
+    k <- fromIntegral <$> u2
 
 -- TODO Nothing if j/k == 0
     rtnIndx <- replicateM j u2
@@ -352,11 +422,12 @@ getFtr = do
 
     patgNum <- mu1e255
     spinMap <- getBitField
+    -}
 
-    return $ Ftr testNum headNum siteNum testFlag cycleCnt relVadr reptCnt numFail 
-                xFail yFail vectOff rtnIndx rtnStat pgmIndx pgmStat
-                failPin vecNam timeSet opCode testTxt alarmId progTxt rsltTxt patgNum spinMap
--}
+    return $ Ftr testNum headNum siteNum testFlag []
+                -- cycleCnt relVadr reptCnt numFail 
+                -- xFail yFail vectOff rtnIndx rtnStat pgmIndx pgmStat
+                -- failPin vecNam timeSet opCode testTxt alarmId progTxt rsltTxt patgNum spinMap
 
 -- TODO: BitField type like [U1] which toJson prints as hex "FF AF 12 ..."
 getBitField :: Get [U1]
@@ -457,9 +528,9 @@ specificGet (Header _ 5 20) = getPrr
 -- Per-Test
 specificGet (Header _ 10 30) = getTsr
 -- -- Per-Test-Execution
--- specificGet (Header _ 15 10) = getPtr
--- specificGet (Header _ 15 15) = getMpr
--- specificGet (Header _ 15 20) = getFtr
+specificGet (Header _ 15 10) = getPtr
+specificGet (Header _ 15 15) = getMpr
+specificGet (Header _ 15 20) = getFtr
 -- -- Per-Program-Segment
 specificGet (Header _ 20 10) = getBps
 specificGet (Header _ 20 20) = getEps
