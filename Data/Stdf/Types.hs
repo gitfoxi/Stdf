@@ -34,6 +34,11 @@ instance ToJSON TestType
 instance ToJSON WaferUnits
 instance ToJSON Direction
 instance ToJSON OptionalInfo
+instance ToJSON GroupMode
+instance ToJSON Radix
+instance ToJSON TestFlag
+instance ToJSON PassFailBin
+instance ToJSON ParametricFlag
 
 data BinRec = BinRec 
     { header :: Header
@@ -130,7 +135,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
         | Plr { groupIndecies :: [U2]
               -- Instead of Maybe [] opt for empty [Maybe]
               , groupModes :: [GroupMode] -- TODO: GroupMode
-              , groupRadixes :: [GroupRadix] -- TODO: GroupRadix
+              , groupRadixes :: [Radix] -- TODO: GroupRadix
               -- Should really just use a string for state characters
               -- instead of Left/Right
               , programStateChars :: [Text] -- combine CharR and CharL at parse?
@@ -158,11 +163,11 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , extraType :: Maybe Text
               , extraId :: Maybe Text }
         | Wir { head :: !U1
-              , siteGroup :: Maybe U1 -- 255 -> Nothing
+              , siteGroup :: !U1 -- 255 -> Nothing -- feature removed
               , startTime :: !U4
               , waferId :: Maybe Text }
         | Wrr { head :: !U1
-              , siteGroup :: Maybe U1  -- 255 means Nothing
+              , siteGroup :: !U1  -- 255 means Nothing
               , finishTime :: !U4
               , partCount :: !U4
               , retestCount :: Maybe U4 -- 4,294,967,295 -> Nothing
@@ -217,8 +222,8 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
         | Ptr { test :: !U4
               , head :: !U1
               , site :: !U1
-              , testFlags :: [TestFlags] -- B1 bitfield further parsing bits
-              , parametricFlags :: [ParametricFlags] -- B1 bitfield further parsing bits
+              , testFlags :: [TestFlag] -- B1 bitfield further parsing bits
+              , parametricFlags :: [ParametricFlag] -- B1 bitfield further parsing bits
               , result :: Maybe R4
               , testText :: Maybe Text
               -- , alarmId :: Maybe Text -> optionalInfo
@@ -226,8 +231,8 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
         | Mpr { test :: !U4
               , head :: !U1
               , site :: !U1
-              , testFlags :: [TestFlags]
-              , parametricFlags :: [ParametricFlags]
+              , testFlags :: [TestFlag]
+              , parametricFlags :: [ParametricFlag]
               -- j , stateCount :: U2
               -- k , resultCount :: U2
               , states :: [Text] -- Nibbles! array of states? j states
@@ -254,7 +259,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
         | Ftr { test :: !U4
               , head :: !U1
               , site :: !U1
-              , testFlags :: [TestFlags]
+              , testFlags :: [TestFlag]
               , info :: [OptionalInfo]
               -- -- , optFlg :: !U1 -- 8 bit packed binary -- record may have ended by here
               -- , cycleCount :: Maybe U4    -- To Optional Info
@@ -296,6 +301,7 @@ data GroupMode = UnknownGroupMode
                | DualDriveValid
                | DualDriveWindowSustain
                | OtherGroupMode U2
+               deriving (Generic, Show)
 
 data Radix = DefaultRadix
            | Binary
@@ -304,6 +310,7 @@ data Radix = DefaultRadix
            | Hexadecimal
            | Symbolic
            | OtherRadix U1
+           deriving (Generic, Show)
 
 data TestFlag = Alarm 
               | Invalid
@@ -313,8 +320,10 @@ data TestFlag = Alarm
               | Aborted
               | Pass
               | Fail
+              deriving (Generic, Show)
 
 data PassFailBin = PassBin | FailBin | UnknownBin | OtherBin Char
+    deriving (Generic, Show)
 
 data ParametricFlag = ScaleError
                     | DriftError
@@ -323,6 +332,7 @@ data ParametricFlag = ScaleError
                     | FailLowLimit
                     | PassAlternateLimits
                     -- Not bothering with bits 6 & 7 because stupid
+                    deriving (Generic, Show)
 
 -- TODO: Another pass at scaling flags
 -- Maybe better as sum type
