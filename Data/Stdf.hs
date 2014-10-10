@@ -10,7 +10,7 @@ module Data.Stdf ( parse
 
 import Data.Stdf.Types
 import Data.Binary.Get hiding (Fail)
-import Data.ByteString.Lazy.Char8 as BL hiding (show, elem, notElem, all, concatMap, concat)
+import Data.ByteString.Lazy.Char8 as BL hiding (show, elem, notElem, all, concatMap, concat, zipWith, map)
 import Data.Bits (testBit, (.&.), shiftR)
 import Control.Applicative
 import Prelude hiding (show, Left, Right)
@@ -18,10 +18,11 @@ import Text.Show
 import Control.Monad
 import qualified Data.ByteString.Base64.Lazy as Base64
 import Data.Text.Lazy.Encoding
-import Data.Text.Lazy hiding (all, concatMap, concat)
+import Data.Text.Lazy hiding (all, concatMap, concat, zipWith, map)
 import GHC.Char
 import Data.Sequence (replicateA)
 import Data.Ix (range)
+import Data.Binary.IEEE754
 
 
 
@@ -69,8 +70,45 @@ getPgr :: Get Rec
 getPgr = Pgr <$> u2 <*> mcn <*> getU2List
 
 -- TODO: 93k stdf have none of this so low-priority
--- getPlr :: Get Rec
--- getPlr = return $ Plr [] (Just []) (Just []) (Just []) (Just []) (Just []) (Just [])
+getPlr :: Get Rec
+getPlr = do
+    k <- fromIntegral <$> u2
+    indecies <- replicateM k u2
+    grpMode <- replicateM k u2
+    let groupModes = map toGroupMode grpMode
+    grpRdx <-  replicateM k u1
+    let radixes = map toRadix grpRdx
+    pgmChaR <- replicateM k mcn
+    rtnChaR <- replicateM k mcn
+    pgmChaL <- replicateM k mcn
+    rtnChaL <- replicateM k mcn
+
+    -- let pgmChars = zipWith (++) pgmChaL pgmChaR
+    -- let rtnChars = zipWith (++) rtnChaL rtnChaR
+
+    return $ Plr indecies groupModes radixes pgmChaR rtnChaR pgmChaL rtnChaL
+
+toGroupMode :: U2 -> GroupMode
+toGroupMode 00 = UnknownGroupMode
+toGroupMode 10 = Normal
+toGroupMode 20 = SameCycleIO
+toGroupMode 21 = SameCycleMidband
+toGroupMode 22 = SameCycleValid
+toGroupMode 23 = SameCycleWindowSustain
+toGroupMode 30 = DualDrive
+toGroupMode 31 = DualDriveMidband
+toGroupMode 32 = DualDriveValid
+toGroupMode 33 = DualDriveWindowSustain
+toGroupMode x = OtherGroupMode x
+
+toRadix :: U1 -> Radix
+toRadix 0  = DefaultRadix
+toRadix 2  = Binary
+toRadix 8  = Octal
+toRadix 10 = Decimal
+toRadix 16 = Hexadecimal
+toRadix 20 = Symbolic
+toRadix x  = OtherRadix x
 
 getRdr :: Get Rec
 getRdr = Rdr <$> getU2List
@@ -137,7 +175,10 @@ u2 = getWord16le
 u4 = getWord32le
 
 r4 :: Get R4
-r4 = fromIntegral <$> u4
+r4 = getFloat32le
+
+r8 :: Get R8
+r8 = getFloat64le
 
 i1 :: Get I1
 i1 = fromIntegral <$> u1
@@ -145,8 +186,8 @@ i1 = fromIntegral <$> u1
 i2 :: Get I2
 i2 = fromIntegral <$> u2
 
-i4 :: Get I1
-i4 = fromIntegral <$> u1
+i4 :: Get I4
+i4 = fromIntegral <$> u4
 
 mu2, mu2e0 :: Get (Maybe U2)
 mu2 = missing (65535 :: U2) <$> u2
@@ -444,6 +485,27 @@ getBps = Bps <$> mcn
 getEps :: Get Rec
 getEps = return Eps
 
+getGdr :: Get Rec
+getGdr = do
+    fieldCount <- fromIntegral <$> u2
+    fields <- replicateM fieldCount getGdrField
+    return $ Gdr fields
+
+getGdrField :: Get GdrField
+getGdrField = do
+    fieldType <- fromIntegral <$> u1
+    case fieldType of
+        0 -> return GPad
+        1 -> GU1 <$> u1
+        2 -> GU2 <$> u2
+        3 -> GU4 <$> u4
+        4 -> GI1 <$> i1
+        5 -> GI2 <$> i2
+        6 -> GI4 <$> i4
+        7 -> GFloat <$> r4
+        8 -> GDouble <$> r8
+        10 -> GStr <$> cn
+
 getDtr :: Get Rec
 getDtr = Dtr <$> cn
 
@@ -515,7 +577,7 @@ specificGet (Header _ 1 40) = getHbr
 specificGet (Header _ 1 50) = getSbr
 specificGet (Header _ 1 60) = getPmr
 specificGet (Header _ 1 62) = getPgr
--- specificGet (Header _ 1 63) = getPlr
+specificGet (Header _ 1 63) = getPlr
 specificGet (Header _ 1 70) = getRdr
 specificGet (Header _ 1 80) = getSdr
 -- Per Wafer Info
@@ -535,7 +597,7 @@ specificGet (Header _ 15 20) = getFtr
 specificGet (Header _ 20 10) = getBps
 specificGet (Header _ 20 20) = getEps
 -- -- Generic Data
--- specificGet (Header _ 50 10) = getGdr
+specificGet (Header _ 50 10) = getGdr
 specificGet (Header _ 50 30) = getDtr
 
 --

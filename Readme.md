@@ -67,8 +67,19 @@ File: test.stdf
 * StdfToJson -- prints each Stdf record as a one-line JSON object for easy importing into other languages for further processing
 
 
-Now the Bad News
+Not Implemented
 ----------------
+
+### Non-Intel floating-point and endianness
+
+It really blows my mind that Stdf expects the parser to support any N CPU bit
+encodings. I won't do it.
+
+### Gzip
+
+The spec says I should unzip your file for you.
+
+### Some tricky records and fields
 
 Not yet covering all fields of all Stdf records.  PLR and GDR are ignored and
 several interesting optional fields in PTR, MPR and FTR are not yet processed.

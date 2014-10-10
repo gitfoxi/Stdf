@@ -132,16 +132,19 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
         -- Parsing: 
         -- Empty arrays (or empty members of arrays) can be omitted 
         -- if they occur at the end of the record.
-        | Plr { groupIndecies :: [U2]
+        | Plr { 
               -- Instead of Maybe [] opt for empty [Maybe]
+                indecies :: [U2]
               , groupModes :: [GroupMode] -- TODO: GroupMode
               , groupRadixes :: [Radix] -- TODO: GroupRadix
               -- Should really just use a string for state characters
-              -- instead of Left/Right
-              , programStateChars :: [Text] -- combine CharR and CharL at parse?
-              , returnStateChars :: [Text] }
-              -- , programStateCharsLeft :: [Maybe Char]
-              -- , returnStateCharsLeft :: [Maybe Char] }
+              -- instead of Left/Right but failed since I don't have example PLR
+              -- , programStateChars :: [Text] -- combine CharR and CharL at parse?
+              -- , returnStateChars :: [Text] }
+              , programStateCharsRight :: [Maybe Text]
+              , returnStateCharsRight :: [Maybe Text]
+              , programStateCharsLeft :: [Maybe Text]
+              , returnStateCharsLeft :: [Maybe Text] }
         | Rdr { retestBins :: [U2] }
         | Sdr { headId :: !U1
               , siteGroup :: !U1
@@ -287,7 +290,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               } -- TODO: this is a long silly record. there's a bunch more things
         | Bps { sequencerName :: Maybe Text }  -- Begin Program Secion
         | Eps -- End Program Section: no payload
-        | Gdr GdrField
+        | Gdr [GdrField]
         | Dtr { textDat :: Text }
           deriving (Generic, Show)
 
@@ -295,6 +298,7 @@ data GroupMode = UnknownGroupMode
                | Normal
                | SameCycleIO
                | SameCycleMidband
+               | SameCycleValid
                | SameCycleWindowSustain
                | DualDrive
                | DualDriveMidband
