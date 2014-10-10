@@ -106,15 +106,15 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , site :: !U1
               , bin :: !U2
               , binCount :: !U4
-              , passFail :: PassFail -- TODO: HBIN_PF
+              , passFailBin :: PassFailBin -- TODO: HBIN_PF
               , name :: Maybe Text }
         | Sbr { head :: !U1
               , site :: !U1
               , bin :: !U2
               , binCount :: !U4
-              , passFail :: PassFail
+              , passFail :: PassFailBin
               , name :: Maybe Text }
-        | Pmr { index :: !U2
+        | Pmr { index :: !U2 -- Maybe rather than index reference by name
               , channelType :: Maybe U2
               , channelName :: Maybe Text
               , physicalName :: Maybe Text
@@ -124,13 +124,19 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
         | Pgr { index :: !U2
               , name :: Maybe Text
               , pinIndecies :: Maybe [U2] } -- list of pins instead of refering to indecies
+        -- Parsing: 
+        -- Empty arrays (or empty members of arrays) can be omitted 
+        -- if they occur at the end of the record.
         | Plr { groupIndecies :: [U2]
-              , groupModes :: Maybe [GroupMode] -- TODO: GroupMode
-              , groupRadixes :: Maybe [GroupRadix] -- TODO: GroupRadix
-              , programStateChars :: Maybe [Text] -- combine CharR and CharL at parse?
-              , returnStateChars :: Maybe [Text]
-              , programStateCharsLeft :: Maybe [Text]
-              , returnStateCharsLeft :: Maybe [Text] }
+              -- Instead of Maybe [] opt for empty [Maybe]
+              , groupModes :: [GroupMode] -- TODO: GroupMode
+              , groupRadixes :: [GroupRadix] -- TODO: GroupRadix
+              -- Should really just use a string for state characters
+              -- instead of Left/Right
+              , programStateChars :: [Text] -- combine CharR and CharL at parse?
+              , returnStateChars :: [Text] }
+              -- , programStateCharsLeft :: [Maybe Char]
+              -- , returnStateCharsLeft :: [Maybe Char] }
         | Rdr { retestBins :: [U2] }
         | Sdr { head :: !U1
               , siteGroup :: !U1
@@ -215,8 +221,8 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , parametricFlags :: [ParametricFlags] -- B1 bitfield further parsing bits
               , result :: Maybe R4
               , testText :: Maybe Text
-              , alarmId :: Maybe Text
-              , optionalInfo :: Maybe OptionalInfo } -- TODO: better name
+              -- , alarmId :: Maybe Text -> optionalInfo
+              , info :: [OptionalInfo] } -- TODO: better name
         | Mpr { test :: !U4
               , head :: !U1
               , site :: !U1
@@ -224,59 +230,80 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , parametricFlags :: [ParametricFlags]
               -- j , stateCount :: U2
               -- k , resultCount :: U2
-              , states :: Maybe Text -- Nibbles! array of states? j states
-              , results :: Maybe [R4] -- k results
+              , states :: [Text] -- Nibbles! array of states? j states
+              , results :: [R4] -- k results
               , testText :: Maybe Text
-              , alarmId :: Maybe Text
-              -- , OPT_FLG B1 optional stuff to parse
-              , resultExp :: Maybe I1  -- TODO: put mostly in OptionalInfo
-              , lowLimitExp :: Maybe I1
-              , highLimitExp :: Maybe I1
-              , lowLimit :: Maybe R4
-              , highLimit :: Maybe R4
-              , startingInput :: Maybe R4
-              , incrementInput :: Maybe R4
-              , returnPinIndecies :: Maybe [U2] -- k indecies
-              , units :: Maybe Text
-              , unitsInputCondition  :: Maybe Text
-              , printfResultFmt :: Maybe Text
-              , printfLowLimitFmt :: Maybe Text
-              , printfHighLimitFmt :: Maybe Text
-              , lowSpecLimit :: Maybe R4
-              , highSpecLimit :: Maybe R4 }
+              , info :: [OptionalInfo] }
+              -- , alarmId :: Maybe Text
+              -- -- , OPT_FLG B1 optional stuff to parse
+              -- , resultExp :: Maybe I1  -- TODO: put mostly in OptionalInfo
+              -- , lowLimitExp :: Maybe I1
+              -- , highLimitExp :: Maybe I1
+              -- , lowLimit :: Maybe R4
+              -- , highLimit :: Maybe R4
+              -- , startingInput :: Maybe R4
+              -- , incrementInput :: Maybe R4
+              -- , returnPinIndecies :: Maybe [U2] -- k indecies
+              -- , units :: Maybe Text
+              -- , unitsInputCondition  :: Maybe Text
+              -- , printfResultFmt :: Maybe Text
+              -- , printfLowLimitFmt :: Maybe Text
+              -- , printfHighLimitFmt :: Maybe Text
+              -- , lowSpecLimit :: Maybe R4
+              -- , highSpecLimit :: Maybe R4 }
         | Ftr { test :: !U4
               , head :: !U1
               , site :: !U1
               , testFlags :: [TestFlags]
-              -- , optFlg :: !U1 -- 8 bit packed binary -- record may have ended by here
-              , cycleCount :: Maybe U4    -- To Optional Info
-              , relativeVectorAddr :: Maybe U4
-              , numFailingPins :: Maybe U4
-              , xLogicalFailureAddr :: Maybe I4
-              , yLogicalFailureAddr :: Maybe I4
-              , offsetFromVector :: Maybe I2
-              -- j U2
-              -- k U2
-              , pinIndecies :: Maybe [U2] -- j x U2
-              , returnedStates :: Maybe [U1] -- j NIBBLES!
-              , pgmStateIndecies :: Maybe [U2] -- k x U2
-              , pgmStates :: Maybe [U1] -- k NIBBLES!
-              , failPin :: Maybe [U1] -- bitfield!
-              , vector :: Maybe Text
-              , timeSet :: Maybe Text
-              , opCode :: Maybe Text
-              , label :: Maybe Text
-              , alarmId :: Maybe Text
-              , programText :: Maybe Text
-              , resultText :: Maybe Text
-              , patternGen :: Maybe U1  -- 255
-              , enabledPins :: Maybe [U1] -- bitfield!
+              , info :: [OptionalInfo]
+              -- -- , optFlg :: !U1 -- 8 bit packed binary -- record may have ended by here
+              -- , cycleCount :: Maybe U4    -- To Optional Info
+              -- , relativeVectorAddr :: Maybe U4
+              -- , numFailingPins :: Maybe U4
+              -- , xLogicalFailureAddr :: Maybe I4
+              -- , yLogicalFailureAddr :: Maybe I4
+              -- , offsetFromVector :: Maybe I2
+              -- -- j U2
+              -- -- k U2
+              -- , pinIndecies :: Maybe [U2] -- j x U2
+              -- , returnedStates :: Maybe [U1] -- j NIBBLES!
+              -- , pgmStateIndecies :: Maybe [U2] -- k x U2
+              -- , pgmStates :: Maybe [U1] -- k NIBBLES!
+              -- , failPin :: Maybe [U1] -- bitfield!
+              -- , vector :: Maybe Text
+              -- , timeSet :: Maybe Text
+              -- , opCode :: Maybe Text
+              -- , label :: Maybe Text
+              -- , alarmId :: Maybe Text
+              -- , programText :: Maybe Text
+              -- , resultText :: Maybe Text
+              -- , patternGen :: Maybe U1  -- 255
+              -- , enabledPins :: Maybe [U1] -- bitfield!
               } -- TODO: this is a long silly record. there's a bunch more things
         | Bps { sequencerName :: Maybe Text }  -- Begin Program Secion
         | Eps -- End Program Section: no payload
         | Gdr GdrField
         | Dtr { textDat :: Text }
           deriving (Generic, Show)
+
+data GroupMode = UnknownGroupMode
+               | Normal
+               | SameCycleIO
+               | SameCycleMidband
+               | SameCycleWindowSustain
+               | DualDrive
+               | DualDriveMidband
+               | DualDriveValid
+               | DualDriveWindowSustain
+               | OtherGroupMode U2
+
+data Radix = DefaultRadix
+           | Binary
+           | Octal
+           | Decimal
+           | Hexadecimal
+           | Symbolic
+           | OtherRadix U1
 
 data TestFlag = Alarm 
               | Invalid
@@ -286,6 +313,8 @@ data TestFlag = Alarm
               | Aborted
               | Pass
               | Fail
+
+data PassFailBin = PassBin | FailBin | UnknownBin | OtherBin Char
 
 data ParametricFlag = ScaleError
                     | DriftError
@@ -297,19 +326,42 @@ data ParametricFlag = ScaleError
 
 -- TODO: Another pass at scaling flags
 -- Maybe better as sum type
-data OptionalInfo =
-            OptionalInfo {
-                resultExp :: Maybe I1
-              , lowLimitExp :: Maybe I1
-              , highLimitExp :: Maybe I1
-              , lowTestLimit :: Maybe R4
-              , highTestLimit :: Maybe R4
-              , units :: Maybe Text
-              , printfResultFmt :: Maybe Text
-              , printfLowLimitFmt :: Maybe Text
-              , printfHighLimitFmt :: Maybe Text
-              , lowSpecLimit :: Maybe R4
-              , highSpecLimit :: Maybe R4 } deriving (Generic, Show)
+data OptionalInfo   = Units Text
+                    | LowSpecLimit Float
+                    | HighSpecLimit Float
+                    | LowSpecLimitStr Text
+                    | HighSpecLimitStr Text
+                    | AlarmId Text
+                    | LowLimit Float
+                    | HighLimit Float
+                    | LowLimitStr Text
+                    | HighLimitStr Text
+                    | ResultStr Text
+                    | StartingInput Float
+                    | StartingInputUnits Text
+                    | IncrementInput Float
+                    -- change to a map of pinName -> state
+                    | ReturnPinIndecies [U2]  -- k
+                    | CycleCount U4    -- To Optional Info
+                    | RelativeVectorAddr U4
+                    | NumFailingPins U4
+                    | XLogicalFailureAddr I4
+                    | YLogicalFailureAddr I4
+                    | OffsetFromVector I2
+                    | PinIndecies [U2] -- j x U2 -- redundant with ReturnPinIndecies?
+                    | ReturnedStates [U1] -- j NIBBLES!
+                    | PgmStateIndecies [U2] -- k x U2 -> Parse pin states?
+                    | PgmStates [U1] -- k NIBBLES! -> String
+                    | FailPin [U1] -- bitfield! -> [PinName]
+                    | Vector Text
+                    | TimeSet Text
+                    | OpCode Text
+                    | Label Text
+                    | ProgramText Text
+                    | ResultText Text
+                    | PatternGen U1  -- 255
+                    | EnabledPins [U1] -- bitfield!
+                    deriving (Generic, Show)
 
 data TestType = Parametric
               | Functional
