@@ -128,7 +128,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , site :: !U1 }
         | Pgr { index :: !U2
               , name :: Maybe Text
-              , pinIndecies :: Maybe [U2] } -- list of pins instead of refering to indecies
+              , pinIndecies :: [U2] } -- list of pins instead of refering to indecies
         -- Parsing: 
         -- Empty arrays (or empty members of arrays) can be omitted 
         -- if they occur at the end of the record.

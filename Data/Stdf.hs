@@ -57,10 +57,10 @@ getPcr :: Get Rec
 getPcr = Pcr <$> u1 <*> u1 <*> u4 <*> mu4 <*> mu4 <*> mu4 <*> mu4 
 
 getHbr :: Get Rec
-getHbr = Hbr <$> u1 <*> u1 <*> u2 <*> u4 <*> mc1 <*> mcn
+getHbr = Hbr <$> u1 <*> u1 <*> u2 <*> u4 <*> getPassFailBin <*> mcn
 
 getSbr :: Get Rec
-getSbr = Sbr <$> u1 <*> u1 <*> u2 <*> u4 <*> mc1 <*> mcn
+getSbr = Sbr <$> u1 <*> u1 <*> u2 <*> u4 <*> getPassFailBin <*> mcn
 
 getPmr :: Get Rec
 getPmr = Pmr <$> u2 <*> mu2e0 <*> mcn <*> mcn <*> mcn <*> u1 <*> u1
@@ -69,8 +69,8 @@ getPgr :: Get Rec
 getPgr = Pgr <$> u2 <*> mcn <*> getU2List
 
 -- TODO: 93k stdf have none of this so low-priority
-getPlr :: Get Rec
-getPlr = return $ Plr [] (Just []) (Just []) (Just []) (Just []) (Just []) (Just [])
+-- getPlr :: Get Rec
+-- getPlr = return $ Plr [] (Just []) (Just []) (Just []) (Just []) (Just []) (Just [])
 
 getRdr :: Get Rec
 getRdr = Rdr <$> getU2List
@@ -82,15 +82,24 @@ getSdr = Sdr <$> u1 <*> u1 <*> getU1List <*> mcn <*> mcn
 -- getSdr = Sdr <$> u1 <*> u1 <*> u1 <*> getU1List <*> replicateA 16 mcn
 
 getWir :: Get Rec
-getWir = Wir <$> u1 <*> mu1e255 <*> u4 <*> mcn
+getWir = Wir <$> u1 <*> u1 <*> u4 <*> mcn
 
 getWrr :: Get Rec
-getWrr = Wrr <$> u1 <*> mu1e255 <*> u4 <*> u4 <*> mu4 <*> mu4 <*> mu4
+getWrr = Wrr <$> u1 <*> u1 <*> u4 <*> u4 <*> mu4 <*> mu4 <*> mu4
              <*> mu4 <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn
 
 getWcr :: Get Rec
 getWcr = Wcr <$> mr4 <*> mr4 <*> mr4 <*> getWaferUnits <*> getDirection 
              <*> mi2 <*> mi2 <*> getDirection <*> getDirection
+
+getPassFailBin :: Get PassFailBin
+getPassFailBin = do
+    c <- c1
+    return $ case c of
+        'P' -> PassBin
+        'F' -> FailBin
+        ' ' -> UnknownBin
+        _   -> OtherBin c
 
 getDirection :: Get (Maybe Direction)
 getDirection = charToDirection <$> c1
@@ -196,17 +205,17 @@ cn = do
 bit :: U1 -> Int -> Bool
 bit = testBit
 
-getPartFlg :: Get PartFlg
-getPartFlg = do
+getPartFlag :: Get PartFlag
+getPartFlag = do
     b <- u1
-    return PartFlg { supersedesPartId = bit b 0
+    return PartFlag { supersedesPartId = bit b 0
                    , supersedesXY     = bit b 1
                    , abnormalEnd      = bit b 2
                    , failed           = bit b 3
                    , noPassFailInfo   = bit b 4 }
 
 getPrr :: Get Rec
-getPrr = Prr <$> u1 <*> u1 <*> getPartFlg <*> u2 <*> u2 <*> mu2
+getPrr = Prr <$> u1 <*> u1 <*> getPartFlag <*> u2 <*> u2 <*> mu2
              <*> mi2 <*> mi2 <*> mu4 <*> mcn <*> mcn <*> mcn
 
 getPir :: Get Rec
@@ -228,6 +237,7 @@ getTsr = Tsr <$> u1 <*> u1 <*> getTestType <*> u4 <*> mu4 <*> mu4 <*> mu4
                charToTestType ' ' = Nothing
                charToTestType x = Just $ OtherTestType x
 
+{-
 getPtr :: Get Rec
 getPtr = do
         ptrTestNum <- u4
@@ -290,6 +300,7 @@ getOptionalInfo' = do
                  <*> mcn <*> mcn <*> mcn <*> mcn 
                  <*> getOnFalse invalidLowSpecLimit r4
                  <*> getOnFalse invalidHighSpecLimit r4
+-}
 
 getOnFalse :: Bool -> Get a -> Get (Maybe a)
 getOnFalse cond get =
@@ -297,6 +308,7 @@ getOnFalse cond get =
             then return Nothing
             else Just <$> get
 
+{-
 getFtr :: Get Rec
 getFtr = do
     testNum <- u4
@@ -344,14 +356,16 @@ getFtr = do
     return $ Ftr testNum headNum siteNum testFlag cycleCnt relVadr reptCnt numFail 
                 xFail yFail vectOff rtnIndx rtnStat pgmIndx pgmStat
                 failPin vecNam timeSet opCode testTxt alarmId progTxt rsltTxt patgNum spinMap
+-}
 
 -- TODO: BitField type like [U1] which toJson prints as hex "FF AF 12 ..."
-getBitField :: Get BitField -- [U1]
+getBitField :: Get [U1]
 getBitField = do
     nbits <- u2
     let nbytes = let (mbytes, mbits) = nbits `divMod` 8
-                 in mbytes + if mbits == 0 then 0 else 1
-    BitField <$> replicateM nbytes u1
+                     obytes = mbytes + if mbits == 0 then 0 else 1
+                 in fromIntegral obytes
+    replicateM nbytes u1
 
 getBps :: Get Rec
 getBps = Bps <$> mcn
@@ -430,7 +444,7 @@ specificGet (Header _ 1 40) = getHbr
 specificGet (Header _ 1 50) = getSbr
 specificGet (Header _ 1 60) = getPmr
 specificGet (Header _ 1 62) = getPgr
-specificGet (Header _ 1 63) = getPlr
+-- specificGet (Header _ 1 63) = getPlr
 specificGet (Header _ 1 70) = getRdr
 specificGet (Header _ 1 80) = getSdr
 -- Per Wafer Info
@@ -443,7 +457,7 @@ specificGet (Header _ 5 20) = getPrr
 -- Per-Test
 specificGet (Header _ 10 30) = getTsr
 -- -- Per-Test-Execution
-specificGet (Header _ 15 10) = getPtr
+-- specificGet (Header _ 15 10) = getPtr
 -- specificGet (Header _ 15 15) = getMpr
 -- specificGet (Header _ 15 20) = getFtr
 -- -- Per-Program-Segment
