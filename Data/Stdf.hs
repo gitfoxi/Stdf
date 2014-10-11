@@ -50,7 +50,7 @@ getFar :: Get Rec
 getFar = Far <$> getWord8 <*> getWord8
 
 getAtr :: Get Rec
-getAtr = Atr <$> getTime <*> mcn -- TODO: more parsing for time fields
+getAtr = Atr <$> getTime <*> mcn
 
 getTime :: Get (Maybe UTCTime)
 getTime = do
