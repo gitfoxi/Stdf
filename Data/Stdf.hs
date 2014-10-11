@@ -33,6 +33,7 @@ import Data.Time.Clock
 import Data.Time.Clock.POSIX
 
 -- TODO: Travis
+-- TODO: JSON/XML data model for STDF
 
 -- JSON gotcha: can't encode ByteString
 -- Have to convert character strings to Text-latin1
@@ -56,8 +57,13 @@ getTime = do
     secs <- u4
     return $ if secs == 0 then Nothing else Just $ posixSecondsToUTCTime $ realToFrac secs
 
+getMinutes :: Get (Maybe Minutes)
+getMinutes = do
+    mins <- u2
+    return $ if mins == 65535 then Nothing else Just $ Minutes mins
+
 getMir :: Get Rec
-getMir = Mir <$> u4 <*> u4 <*> u1 <*> mc1<*> mc1  <*> mc1 <*> mu2
+getMir = Mir <$> getTime <*> getTime <*> u1 <*> mc1<*> mc1  <*> mc1 <*> getMinutes
              <*> mc1 <*> cn <*> cn <*> cn <*> cn <*> cn <*> mcn 
              <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn 
              <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn 
@@ -65,7 +71,7 @@ getMir = Mir <$> u4 <*> u4 <*> u1 <*> mc1<*> mc1  <*> mc1 <*> mu2
              <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn
 
 getMrr :: Get Rec
-getMrr = Mrr <$> u4 <*> mc1 <*> mcn <*> mcn
+getMrr = Mrr <$> getTime <*> mc1 <*> mcn <*> mcn
 
 getPcr :: Get Rec
 getPcr = Pcr <$> u1 <*> u1 <*> u4 <*> mu4 <*> mu4 <*> mu4 <*> mu4 
@@ -132,10 +138,10 @@ getSdr = Sdr <$> u1 <*> u1 <*> getU1List <*> mcn <*> mcn
 -- getSdr = Sdr <$> u1 <*> u1 <*> u1 <*> getU1List <*> replicateA 16 mcn
 
 getWir :: Get Rec
-getWir = Wir <$> u1 <*> u1 <*> u4 <*> mcn
+getWir = Wir <$> u1 <*> u1 <*> getTime <*> mcn
 
 getWrr :: Get Rec
-getWrr = Wrr <$> u1 <*> u1 <*> u4 <*> u4 <*> mu4 <*> mu4 <*> mu4
+getWrr = Wrr <$> u1 <*> u1 <*> getTime <*> u4 <*> mu4 <*> mu4 <*> mu4
              <*> mu4 <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn
 
 getWcr :: Get Rec

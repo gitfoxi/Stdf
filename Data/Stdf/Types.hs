@@ -27,6 +27,7 @@ type R4 = Float -- CFloat
 type R8 = Double -- CDouble
 type C1 = Char
 
+instance ToJSON Minutes
 instance ToJSON Rec
 instance ToJSON PartFlag
 instance ToJSON GdrField
@@ -52,19 +53,22 @@ data Header = Header
 
 type Stdf = [Rec]
 
+data Minutes = Minutes { minutes :: !U2 }
+    deriving (Generic, Show)
+
 -- The mother of all datatypes
 data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother. what's this good for?
         | Far { cpuType  :: !U1
               , stdfVersion  :: !U1 }
         | Atr { modificationTime :: Maybe UTCTime
               , commandLine :: Maybe Text }
-        | Mir { setupTime :: !U4
-              , startTime :: !U4
+        | Mir { setupTime :: Maybe UTCTime
+              , startTime :: Maybe UTCTime
               , station :: !U1
               , modeCode :: Maybe C1 -- TODO: MODE_COD record
               , retestCode :: Maybe C1 -- TODO: RTST_COD record
               , protectionCode :: Maybe C1 -- ' '
-              , burninTime :: Maybe U2 -- 65,535
+              , burninTime :: Maybe Minutes -- 65,535
               , commandCode :: Maybe C1 -- ' '
               , lotId :: Text
               , partType :: Text
@@ -96,7 +100,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , romCodeId :: Maybe Text
               , testerSerialNum :: Maybe Text
               , supervisorName :: Maybe Text }
-        | Mrr { finishTime :: !U4
+        | Mrr { finishTime :: Maybe UTCTime
               , lotDisposition :: Maybe C1
               , userDescription :: Maybe Text
               , execDescription :: Maybe Text }
@@ -167,11 +171,11 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , extraId :: Maybe Text }
         | Wir { headId :: !U1
               , siteGroup :: !U1 -- 255 -> Nothing -- feature removed
-              , startTime :: !U4
+              , startTime :: Maybe UTCTime
               , waferId :: Maybe Text }
         | Wrr { headId :: !U1
               , siteGroup :: !U1  -- 255 means Nothing
-              , finishTime :: !U4
+              , finishTime :: Maybe UTCTime
               , partCount :: !U4
               , retestCount :: Maybe U4 -- 4,294,967,295 -> Nothing
               , abortCount :: Maybe U4 -- 4,294,967,295 -> Nothing
@@ -202,7 +206,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
                 , softBin  :: Maybe U2
                 , xCoord   :: Maybe I2
                 , yCoord   :: Maybe I2
-                , testTime :: Maybe U4
+                , testTime :: Maybe U4 -- TODO: type milliseconds like minutes or call this field milliseconds
                 , partID   :: Maybe Text
                 , partTxt  :: Maybe Text
                 , partFix  :: Maybe Text }
@@ -217,7 +221,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , sequencerName :: Maybe Text
               , testLabel :: Maybe Text
               -- , optionalFlags :: !U1 -- parsing optional if last field in record
-              , testTimeAverage :: Maybe R4 -- optional fields based on optionalFlags
+              , testTimeAverage :: Maybe R4 -- optional fields based on optionalFlags TODO: name this field averageSeconds or make a Seconds type
               , valueMin :: Maybe R4 -- may make these another record type
               , valueMax :: Maybe R4
               , valueSum :: Maybe R4
