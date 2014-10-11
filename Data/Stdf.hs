@@ -14,6 +14,7 @@ import Data.ByteString.Lazy.Char8 as BL hiding (show, elem, notElem, all, concat
 import Data.Bits (testBit, (.&.), shiftR)
 import Control.Applicative
 import Prelude hiding (show, Left, Right)
+import qualified Prelude
 import Text.Show
 import Control.Monad
 import qualified Data.ByteString.Base64.Lazy as Base64
@@ -23,8 +24,9 @@ import GHC.Char
 import Data.Sequence (replicateA)
 import Data.Ix (range)
 import Data.Binary.IEEE754
-
-
+import Codec.Compression.GZip
+import Control.Exception
+import Codec.Compression.Zlib.Internal (DecompressError(..))
 
 -- JSON gotcha: can't encode ByteString
 -- Have to convert character strings to Text-latin1
@@ -69,7 +71,6 @@ getPmr = Pmr <$> u2 <*> mu2e0 <*> mcn <*> mcn <*> mcn <*> u1 <*> u1
 getPgr :: Get Rec
 getPgr = Pgr <$> u2 <*> mcn <*> getU2List
 
--- TODO: 93k stdf have none of this so low-priority
 getPlr :: Get Rec
 getPlr = do
     k <- fromIntegral <$> u2
@@ -636,7 +637,18 @@ getStdf = do
                 recs <- getStdf
                 return (record:recs)
 
--- TODO: parseFile which detects and decompresses .gz per the spec
+isGzipped :: ByteString -> IO Bool
+isGzipped bs = do
+    let magic = runGet getWord16le bs
+    return $ magic == 0x8b1f
+
+-- | Parse an optionally-gzipped stdf file
+parseFile :: String -> IO Stdf
+parseFile fn = do
+    bs <- BL.readFile fn
+    isgz <- isGzipped bs
+    let decompressed = decompress bs
+    return $ parse $ if isgz then decompressed else bs
 
 parse :: ByteString -> Stdf
 parse = runGet getStdf

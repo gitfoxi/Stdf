@@ -75,10 +75,6 @@ Not Implemented
 It really blows my mind that Stdf expects the parser to support any N CPU bit
 encodings. I won't do it.
 
-### Gzip
-
-The spec says I should unzip your file for you.
-
 ### Some tricky records and fields
 
 Not yet covering all fields of all Stdf records.
