@@ -4,6 +4,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Data.Stdf ( parse
+                 , parseFile
                  , Stdf(..)
                  , Rec(..)
                  ) where

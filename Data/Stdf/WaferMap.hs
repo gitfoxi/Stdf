@@ -21,7 +21,7 @@ import Data.List.Split (chunksOf)
 
 data XyBin = XyBin { x :: Int
                    , y :: Int
-                   , bin :: Int }
+                   , hbin :: Int }
            | Missing
     deriving (Show, Eq)
 
@@ -31,7 +31,7 @@ stdfToXyBin (prr@(Prr { xCoord = Just xc
                       , hardBin = hb }):prrs) =
     XyBin { x = fromIntegral xc
           , y = fromIntegral yc
-          , bin = fromIntegral hb } : stdfToXyBin prrs
+          , hbin = fromIntegral hb } : stdfToXyBin prrs
 stdfToXyBin (_:prrs) = stdfToXyBin prrs
 stdfToXyBin [] = []
 
@@ -52,7 +52,7 @@ binToStr (Just bn) = show bn
 
 -- sort by y,x
 -- groupby y,x
--- take lowest bin # from groups
+-- take lowest hbin # from groups
 -- use min max x y to insert Missing dies
 xybsToGrid :: [XyBin] -> [[XyBin]]
 xybsToGrid xybs = mkgrid cols gridlist
@@ -60,7 +60,7 @@ xybsToGrid xybs = mkgrid cols gridlist
                             EQ -> compare (x a) (x b)
                             ordy -> ordy
             eqXy a b = x a == x b && y a == y b
-            ordBin a b = compare (bin a) (bin b)
+            ordBin a b = compare (hbin a) (hbin b)
             waferxy =  [(atx, aty) | aty <- range (miny, maxy)
                                    , atx <- range (minx, maxx)]
             sortedxy = sortBy ordXy xybs
@@ -89,7 +89,7 @@ gridToString xybs = unlines $ map unwords padded
         pad w s = s ++ replicate (w - length s) ' '
 
         binOrNothing Missing = Nothing
-        binOrNothing XyBin { bin = bin } = Just bin
+        binOrNothing XyBin { hbin = hbin } = Just hbin
 
         bins = map2d binOrNothing xybs -- start here
         binstrs :: [[String]]

@@ -17,5 +17,5 @@ main = do
         exitFailure
     let file = head args
     putStrLn $ "File: " ++ file
-    raw <- BL.readFile file
-    putStrLn $ stdfToWaferMapString (parse raw)
+    recs <- parseFile file
+    putStrLn $ stdfToWaferMapString recs

@@ -21,7 +21,6 @@ main = do
         printUsage
         exitFailure
     let file = head args
-    raw <- BL.readFile file
-    let recs = parse raw
+    recs <- parseFile file
     let goodRecs = filter notRaw recs
     mapM_ (BL.putStrLn . encode) goodRecs
