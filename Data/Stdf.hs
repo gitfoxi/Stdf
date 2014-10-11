@@ -26,7 +26,12 @@ import Data.Ix (range)
 import Data.Binary.IEEE754
 import Codec.Compression.GZip
 import Control.Exception
-import Codec.Compression.Zlib.Internal (DecompressError(..))
+import Data.UnixTime
+-- import Data.Time.Compat
+import Data.Time.Clock
+import Data.Time.Clock.POSIX
+
+-- TODO: Travis
 
 -- JSON gotcha: can't encode ByteString
 -- Have to convert character strings to Text-latin1
@@ -43,7 +48,12 @@ getFar :: Get Rec
 getFar = Far <$> getWord8 <*> getWord8
 
 getAtr :: Get Rec
-getAtr = Atr <$> u4 <*> mcn -- TODO: more parsing for time fields
+getAtr = Atr <$> getTime <*> mcn -- TODO: more parsing for time fields
+
+getTime :: Get (Maybe UTCTime)
+getTime = do
+    secs <- u4
+    return $ if secs == 0 then Nothing else Just $ posixSecondsToUTCTime $ realToFrac secs
 
 getMir :: Get Rec
 getMir = Mir <$> u4 <*> u4 <*> u1 <*> mc1<*> mc1  <*> mc1 <*> mu2
@@ -650,5 +660,7 @@ parseFile fn = do
     let decompressed = decompress bs
     return $ parse $ if isgz then decompressed else bs
 
+-- | Parse an Stdf from a ByteString in case you want to open your own files or
+-- | parse a stream off the tester or something
 parse :: ByteString -> Stdf
 parse = runGet getStdf

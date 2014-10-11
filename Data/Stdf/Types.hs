@@ -9,7 +9,7 @@ import Foreign.C.Types
 import Data.Text.Lazy
 import GHC.Generics hiding (U1, C1)
 import Data.Aeson
-import Data.Time.LocalTime
+import Data.Time.Clock
 
 -- Time is local unix time. Shouldn't they put the time zone in the file
 -- in order for this to have any meaning? What if the data isn't being parsed
@@ -56,7 +56,7 @@ type Stdf = [Rec]
 data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother. what's this good for?
         | Far { cpuType  :: !U1
               , stdfVersion  :: !U1 }
-        | Atr { modificationTime :: !U4
+        | Atr { modificationTime :: Maybe UTCTime
               , commandLine :: Maybe Text }
         | Mir { setupTime :: !U4
               , startTime :: !U4
