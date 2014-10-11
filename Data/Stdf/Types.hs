@@ -411,8 +411,8 @@ data GdrField = GPad -- discard
               | GFloat Float -- parse as CFloat
               | GDouble Double -- parse as CDouble
               | GStr Text
-              | GBytes Text -- encoded ByteStr
-              | GData Text -- 2byte length + encoded ByteStr
+              | GBytes [U1] -- encoded ByteStr
+              | GData [U1] -- 2byte length + encoded ByteStr
               | GNibble !U1 -- a nibble? are you fucking kidding me?
               deriving (Generic, Show)
 

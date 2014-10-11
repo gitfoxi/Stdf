@@ -81,5 +81,5 @@ The spec says I should unzip your file for you.
 
 ### Some tricky records and fields
 
-Not yet covering all fields of all Stdf records.  PLR and GDR are ignored and
-several interesting optional fields in PTR, MPR and FTR are not yet processed.
+Not yet covering all fields of all Stdf records.
+Several interesting optional fields in PTR, MPR and FTR are not yet processed.

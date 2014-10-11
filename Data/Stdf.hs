@@ -10,7 +10,7 @@ module Data.Stdf ( parse
 
 import Data.Stdf.Types
 import Data.Binary.Get hiding (Fail)
-import Data.ByteString.Lazy.Char8 as BL hiding (show, elem, notElem, all, concatMap, concat, zipWith, map)
+import Data.ByteString.Lazy.Char8 as BL hiding (show, elem, notElem, all, concatMap, concat, zipWith, map, head)
 import Data.Bits (testBit, (.&.), shiftR)
 import Control.Applicative
 import Prelude hiding (show, Left, Right)
@@ -18,7 +18,7 @@ import Text.Show
 import Control.Monad
 import qualified Data.ByteString.Base64.Lazy as Base64
 import Data.Text.Lazy.Encoding
-import Data.Text.Lazy hiding (all, concatMap, concat, zipWith, map)
+import Data.Text.Lazy hiding (all, concatMap, concat, zipWith, map, head)
 import GHC.Char
 import Data.Sequence (replicateA)
 import Data.Ix (range)
@@ -479,6 +479,11 @@ getBitField = do
                  in fromIntegral obytes
     replicateM nbytes u1
 
+getByteField :: Get [U1]
+getByteField = do
+    nbytes <- fromIntegral <$> u1
+    replicateM nbytes u1
+
 getBps :: Get Rec
 getBps = Bps <$> mcn
 
@@ -505,6 +510,10 @@ getGdrField = do
         7 -> GFloat <$> r4
         8 -> GDouble <$> r8
         10 -> GStr <$> cn
+        11 -> GBytes <$> getByteField -- first 2 bytes are length in bytes
+        12 -> GData <$> getBitField -- first 2 bytes are length in bits. I think I wrote something like this already
+        13 -> GNibble <$> (liftM head . getNibbles) 1
+        _ -> return GPad -- So don't crash on broken GDR
 
 getDtr :: Get Rec
 getDtr = Dtr <$> cn
