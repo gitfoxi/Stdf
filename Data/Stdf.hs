@@ -336,6 +336,7 @@ getTestFlags = getDecodeFlags decodeTestFlags
 getParametricFlags :: Get [ParametricFlag]
 getParametricFlags = getDecodeFlags decodeParametricFlags
 
+-- TODO: Make sure result is Nothing if invalid bit set in testFlags
 getPtr :: Get Rec
 getPtr = do
         ptrTestNum <- u4
@@ -401,6 +402,7 @@ getPtr = do
                             <*> getOnFalse invalidHighSpecLimit r4
 -}
 
+-- TODO: So Mpr doesn't use the Invalid flag
 getMpr :: Get Rec
 getMpr = do
     testNum <- u4
@@ -408,11 +410,14 @@ getMpr = do
     siteNum <- u1
     testFlg <- getTestFlags
     parmFlg <- getParametricFlags
+    -- TODO: record may end here if no more info
     j <- fromIntegral <$> u2
+    -- TODO: record may end here if no more info
     k <- fromIntegral <$> u2
     rtnStat <- getNibbles j :: Get [U1]
     rtnRslt <- replicateM k r4
     testTxt <- mcn
+    -- TODO: record may end here if no more info
     let info = [] -- TODO: parse OptionalInfo
 
     return $ Mpr testNum headNum siteNum testFlg parmFlg rtnStat rtnRslt testTxt info
@@ -442,7 +447,8 @@ getFtr = do
     testNum <- u4
     headNum <- u1
     siteNum <- u1
-    testFlag <- getTestFlags
+    testFlag <- getTestFlags  -- doesn't use the invalid bit
+    -- TODO: record may end here, before rtnIcnt or pgmIcnt -- check isEmpty
     {-
     optFlag <- u1
 
