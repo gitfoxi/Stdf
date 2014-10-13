@@ -262,7 +262,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , result :: Maybe R4
               , testText :: Maybe Text
               -- , alarmId :: Maybe Text -> optionalInfo
-              , info :: Maybe [OptionalInfo] } -- TODO: better name -- Maybe so empty ones don't print in Json
+              , info :: Maybe [OptionalInfo] } -- TODO: better name
         | Mpr { testId :: !U4
               , headId :: !U1
               , siteId :: !U1
