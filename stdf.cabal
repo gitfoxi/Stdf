@@ -67,18 +67,18 @@ library
   
   -- Base language which the package is written in.
   default-language:    Haskell2010
-  GHC-Options: -O
+  -- GHC-Options: -O
 
 Executable StdfToJson
   main-is: StdfToJson.hs
   hs-source-dirs: Examples
   default-language:    Haskell2010
-  GHC-Options: -O
+  -- GHC-Options: -O
   build-depends:       base >=4.7 && <4.8, bytestring >=0.10 && <0.11, binary >=0.7 && <0.8, text >=1.1 && <1.2, base64-bytestring >=1.0 && <1.1, aeson >=0.8 && <0.9, split >=0.2 && <0.3, stdf >= 0.2
 
 Executable WaferMap
   main-is: WaferMap.hs
   hs-source-dirs: Examples
   default-language:    Haskell2010
-  GHC-Options: -O
+  -- GHC-Options: -O
   build-depends:       base >=4.7 && <4.8, bytestring >=0.10 && <0.11, binary >=0.7 && <0.8, text >=1.1 && <1.2, base64-bytestring >=1.0 && <1.1, aeson >=0.8 && <0.9, split >=0.2 && <0.3, stdf >= 0.2
