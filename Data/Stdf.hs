@@ -38,7 +38,7 @@ import Data.Time.Clock
 import Data.Time.Clock.POSIX
 import Data.Maybe
 
-import Debug.Trace
+-- import Debug.Trace
 
 
 -- JSON gotcha: can't encode ByteString
@@ -418,7 +418,6 @@ getPtr = do
 
                 let info = catMaybes [resScal, llmScal, hlmScal, loLimit, hiLimit, units,
                                       cResFmt, cLlmFmt, cHlmFmt, loSpec]
-                traceM $ show info
                 return $ if Prelude.null info then Nothing else Just info
 
 -- TODO: So Mpr doesn't use the InvahiSpec lid flag
