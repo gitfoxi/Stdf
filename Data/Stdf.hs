@@ -3,6 +3,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
+-- TODO: Refactor this file
+-- TODO: Less dependencies. I wonder if there's a tool that can tell me about unused imports
+-- TODO: Some tests
+-- TODO: Yaml/Xml output
+-- TODO: JSON/XML data model for STDF
+
 module Data.Stdf ( parse
                  , parseFile
                  , Stdf(..)
@@ -35,8 +41,6 @@ import Data.Maybe
 
 import Debug.Trace
 
--- TODO: Travis
--- TODO: JSON/XML data model for STDF
 
 -- JSON gotcha: can't encode ByteString
 -- Have to convert character strings to Text-latin1
@@ -344,7 +348,6 @@ getTestFlags = getDecodeFlags decodeTestFlags
 getParametricFlags :: Get [ParametricFlag]
 getParametricFlags = getDecodeFlags decodeParametricFlags
 
--- TODO: Make sure result is Nothing if invalid bit set in testFlags
 getPtr :: Get Rec
 getPtr = do
         ptrTestNum <- u4
@@ -457,7 +460,7 @@ getFtr = do
     headNum <- u1
     siteNum <- u1
     testFlag <- getTestFlags  -- doesn't use the invalid bit
-    -- TODO: record may end here, before rtnIcnt or pgmIcnt -- check isEmpty
+    -- record may end here, before rtnIcnt or pgmIcnt -- check isEmpty
     empty <- isEmpty
     info <- if empty then return []
             else getInfo
@@ -556,11 +559,7 @@ getFtr = do
               YLogicalFailureAddr <$> yFail,
               OffsetFromVector <$> vectOff]
 
-{-
-
-    -}
-
--- TODO: BitField type like [U1] which toJson prints as hex "FF AF 12 ..."
+-- TODO: BitField type like [U1] which toJson prints as hex "FF AF 12 or like STDFreader print bits 10000000 00010101
 getBitField :: Get [U1]
 getBitField = do
     nbits <- u2

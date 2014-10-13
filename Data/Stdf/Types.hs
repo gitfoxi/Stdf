@@ -233,7 +233,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
                 , softBin  :: Maybe U2
                 , xCoord   :: Maybe I2
                 , yCoord   :: Maybe I2
-                , testTime :: Maybe Milliseconds -- TODO: type milliseconds like minutes or call this field milliseconds
+                , testTime :: Maybe Milliseconds
                 , partID   :: Maybe Text
                 , partTxt  :: Maybe Text
                 , partFix  :: Maybe Text }
@@ -247,9 +247,8 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , testName :: Maybe Text
               , sequencerName :: Maybe Text
               , testLabel :: Maybe Text
-              -- , optionalFlags :: !U1 -- parsing optional if last field in record
-              , testTimeAverage :: Maybe R4 -- optional fields based on optionalFlags TODO: name this field averageSeconds or make a Seconds type
-              , valueMin :: Maybe R4 -- may make these another record type
+              , averageSeconds :: Maybe R4
+              , valueMin :: Maybe R4 -- may make these another record type like stats
               , valueMax :: Maybe R4
               , valueSum :: Maybe R4
               , valueSumOfSquares :: Maybe R4 }
@@ -275,7 +274,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , info :: [OptionalInfo] }
               -- , alarmId :: Maybe Text
               -- -- , OPT_FLG B1 optional stuff to parse
-              -- , resultExp :: Maybe I1  -- TODO: put mostly in OptionalInfo
+              -- , resultExp :: Maybe I1
               -- , lowLimitExp :: Maybe I1
               -- , highLimitExp :: Maybe I1
               -- , lowLimit :: Maybe R4
@@ -318,7 +317,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               -- , resultText :: Maybe Text
               -- , patternGen :: Maybe U1  -- 255
               -- , enabledPins :: Maybe [U1] -- bitfield!
-              } -- TODO: this is a long silly record. there's a bunch more things
+              }
         | Bps { sequencerName :: Maybe Text }  -- Begin Program Secion
         | Eps -- End Program Section: no payload
         | Gdr [GdrField]
