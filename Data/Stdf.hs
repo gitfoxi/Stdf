@@ -1,5 +1,4 @@
 
-{-# LANGUAGE NegativeLiterals #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
@@ -255,8 +254,8 @@ getMaybe get missingVal = do
 mi2 :: Get (Maybe I2)
 mi2 = do
     x <- i2
-    return $ case x of
-        (-32768) -> Nothing
+    return $ case x + 1 of
+        (-32767) -> Nothing
         otherwise -> Just x
 
 mu4 :: Get (Maybe U4)

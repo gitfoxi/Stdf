@@ -57,7 +57,7 @@ library
   -- other-modules:       
   
   -- LANGUAGE extensions used by modules in this package.
-  other-extensions:    NegativeLiterals, DeriveGeneric, OverloadedStrings
+  other-extensions:    DeriveGeneric, OverloadedStrings
   
   -- Other library packages from which modules are imported.
   build-depends:       base >=4.6 && <4.8, bytestring >=0.10 && <0.11, binary >=0.7 && <0.8, text >=1.1 && <1.2, base64-bytestring >=1.0 && <1.1, aeson >=0.8 && <0.9, split >=0.2 && <0.3, time >= 1.4, unix-time >= 0.3, zlib >= 0.5, data-binary-ieee754 >= 0.4, containers >= 0.5
