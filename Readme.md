@@ -5,6 +5,7 @@ Structured Test Data Format (STDF) is used to log test data by semiconductor aut
 
 There's a couple of good, open-source libraries for parsing STDF, notably [PyStdf](https://github.com/cmars/pystdf).
 
+Latest version: 0.2
 
 The Data.Stdf advantage
 -----------------------
