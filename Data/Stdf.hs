@@ -2,9 +2,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
--- TODO: Instead of failing pin indecies, dump the failing pins
--- TODO: Returned states would look better as a string than a long ordered list
--- TODO: Some things use Label where TestSuite would make more sense
+-- TODO: Instead of failing pin indecies, dump the failing pin names -- maybe in a second processing step for separation of concerns
+-- TODO: "Returned states" would look better as a string than a long ordered list. I'd also like an option to supress them since 93k doesn't use.
+-- TODO: Some things use Label where TestSuite would make more sense: Ftr, Ptr, Mpr should be consistent with the names.
 -- TODO: Refactor this file
 -- TODO: Less dependencies. I wonder if there's a tool that can tell me about unused imports
 -- TODO: Some tests
@@ -50,7 +50,7 @@ import Data.Maybe
 
 -- JSON gotcha: can't encode ByteString
 -- Have to convert character strings to Text-latin1
--- Encoding base64 raw binary data
+-- Encoding base64 for raw binary data
 
 -- I was thinking of supporting the CPU_TYPE for converting numbers
 -- with different endianness then I realized I would have to support
@@ -448,7 +448,6 @@ getPtr = do
                            cResFmt, cLlmFmt, cHlmFmt, loSpec]
                 return info
 
--- TODO: So Mpr doesn't use the invalid flag
 getMpr :: Get Rec
 getMpr = do
     testNum <- u4
@@ -458,7 +457,8 @@ getMpr = do
     parmFlg <- getParametricFlags
 
     let returnEarly = return $ Mpr testNum headNum siteNum testFlg parmFlg Nothing
-    -- TODO: record may end here if no more info
+    -- record may end here if no more info
+	-- TODO: Could use record default values to clean up this if mess
     e <- isEmpty
     if e then returnEarly
     else do
@@ -466,7 +466,7 @@ getMpr = do
       e <- isEmpty
       if e then returnEarly
       else do
-        -- TODO: record may end here if no more info
+        -- record may end here if no more info
         k <- fromIntegral <$> u2
         rtnStat <- if j == 0 then return $ Nothing
                    else Just . ReturnedStates <$> getNibbles j
