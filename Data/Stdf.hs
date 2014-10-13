@@ -6,7 +6,8 @@
 -- TODO: Less dependencies. I wonder if there's a tool that can tell me about unused imports
 -- TODO: Some tests
 -- TODO: Yaml/Xml output
--- TODO: JSON/XML data model for STDF
+-- TODO: JSON/XML data model for STDF XTDF!
+-- TODO: Reover to next record with warning if get runs out of data
 
 module Data.Stdf ( parse
                  , parseFile

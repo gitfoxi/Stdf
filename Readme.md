@@ -68,6 +68,8 @@ File: test.stdf
 ```
 
 * StdfToJson -- prints each Stdf record as a one-line JSON object for easy importing into other languages for further processing
+* StdfToYaml -- Like StdfToJson but it prints a YAML document. YAML is vastly
+  slower and more human-readable than JSON.
 
 
 Performance
@@ -88,4 +90,4 @@ encodings. I won't do it.
 ### Some tricky records and fields
 
 Not yet covering all fields of all Stdf records.
-Several interesting optional fields in MPR and TSR are not yet processed.
+Several interesting optional fields in MPR are not yet processed.
