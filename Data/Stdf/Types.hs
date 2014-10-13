@@ -9,6 +9,7 @@ import Foreign.C.Types
 import Data.Text.Lazy
 import GHC.Generics hiding (U1, C1)
 import Data.Aeson
+import Data.Aeson.Types
 import Data.Time.Clock
 
 -- Time is local unix time. Shouldn't they put the time zone in the file
@@ -27,19 +28,40 @@ type R4 = Float -- CFloat
 type R8 = Double -- CDouble
 type C1 = Char
 
-instance ToJSON Minutes
-instance ToJSON Rec
-instance ToJSON PartFlag
-instance ToJSON GdrField
-instance ToJSON TestType
-instance ToJSON WaferUnits
-instance ToJSON Direction
-instance ToJSON OptionalInfo
-instance ToJSON GroupMode
-instance ToJSON Radix
-instance ToJSON TestFlag
-instance ToJSON PassFailBin
-instance ToJSON ParametricFlag
+jsonOptions = defaultOptions {
+      allNullaryToStringTag = False
+    , omitNothingFields = True
+    , sumEncoding = ObjectWithSingleField
+    }
+
+flagOptions = defaultOptions
+
+instance ToJSON Minutes where
+    toJSON = genericToJSON jsonOptions
+instance ToJSON Rec where
+    toJSON = genericToJSON jsonOptions
+instance ToJSON PartFlag where
+    toJSON = genericToJSON jsonOptions
+instance ToJSON GdrField where
+    toJSON = genericToJSON jsonOptions
+instance ToJSON TestType where
+    toJSON = genericToJSON jsonOptions
+instance ToJSON WaferUnits where
+    toJSON = genericToJSON jsonOptions
+instance ToJSON Direction where
+    toJSON = genericToJSON jsonOptions
+instance ToJSON OptionalInfo where
+    toJSON = genericToJSON jsonOptions
+instance ToJSON GroupMode where
+    toJSON = genericToJSON jsonOptions
+instance ToJSON Radix where
+    toJSON = genericToJSON jsonOptions
+instance ToJSON TestFlag where
+    toJSON = genericToJSON flagOptions
+instance ToJSON PassFailBin where
+    toJSON = genericToJSON jsonOptions
+instance ToJSON ParametricFlag where
+    toJSON = genericToJSON flagOptions
 
 data BinRec = BinRec 
     { header :: Header
