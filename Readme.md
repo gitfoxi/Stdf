@@ -7,6 +7,8 @@ There's a couple of good, open-source libraries for parsing STDF, notably [PyStd
 
 Latest version: 0.2
 
+[![Build Status](https://travis-ci.org/gitfoxi/Stdf.svg)](https://travis-ci.org/gitfoxi/Stdf)
+
 The Data.Stdf advantage
 -----------------------
 
