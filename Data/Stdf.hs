@@ -2,12 +2,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
+-- TODO: Instead of failing pin indecies, dump the failing pins
+-- TODO: Returned states would look better as a string than a long ordered list
+-- TODO: Some things use Label where TestSuite would make more sense
 -- TODO: Refactor this file
 -- TODO: Less dependencies. I wonder if there's a tool that can tell me about unused imports
 -- TODO: Some tests
--- TODO: Yaml/Xml output
--- TODO: JSON/XML data model for STDF XTDF!
--- TODO: Reover to next record with warning if get runs out of data
+-- TODO: Xml output
+-- TODO: JSON/XSD data model for STDF XTDF!
+-- TODO: Recover to next record with warning if get runs out of data
+-- TODO: make sure to cover all "is optional if it is the last field in the record
+--       or find some automatic way to recover from end of input mid-record
+
 
 module Data.Stdf ( parse
                  , parseFile
@@ -292,9 +298,6 @@ getPrr = Prr <$> u1 <*> u1 <*> getPartFlag <*> u2 <*> u2 <*> mu2
 getPir :: Get Rec
 getPir = Pir <$> u1 <*> u1
 
--- TODO: somewhere in Ptr or another record I forget to put the alarmId in info
--- TODO: make sure to cover all "is optional if it is the last field in the record
-
 getTsr :: Get Rec
 getTsr = do
     headNum <- u1
@@ -380,7 +383,6 @@ getPtr = do
         parametricFlags <- getParametricFlags
         result <- r4 -- depends on testFlags and parametric flags
         testText <- mcn
-        alarmId <- mcn -- part of optionalInfo now
         -- optionalInfo <- getOptionalInfo
         -- record may end here
         optionalInfo <- getOptionalInfo
@@ -403,13 +405,17 @@ getPtr = do
 
             getOptionalInfo :: Get (Maybe [OptionalInfo])
             getOptionalInfo = do
+                    alarmId <- liftA AlarmId <$> mcn
                     -- check we're not at the end of the buffer
                     noInfo <- isEmpty
-                    if noInfo 
-                        then return Nothing 
+                    info0 <- if noInfo 
+                        then return []
                         else getOptionalInfo'
+                    let info1 = alarmId : info0
+                    let info2 = catMaybes info1
+                    return $ if Prelude.null info2 then Nothing else Just info2
 
-            getOptionalInfo' :: Get (Maybe [OptionalInfo])
+            getOptionalInfo' :: Get [Maybe OptionalInfo]
             getOptionalInfo' = do
                 optFlag <- u1 -- getOptFlag
 
@@ -438,11 +444,11 @@ getPtr = do
                 loSpec <- liftA LowSpecLimit <$> getOnFalse invalidLowSpecLimit r4
                 hiSpec <- liftA HighSpecLimit <$> getOnFalse invalidHighSpecLimit r4
 
-                let info = catMaybes [resScal, llmScal, hlmScal, loLimit, hiLimit, units,
-                                      cResFmt, cLlmFmt, cHlmFmt, loSpec]
-                return $ if Prelude.null info then Nothing else Just info
+                let info = [resScal, llmScal, hlmScal, loLimit, hiLimit, units,
+                           cResFmt, cLlmFmt, cHlmFmt, loSpec]
+                return info
 
--- TODO: So Mpr doesn't use the InvahiSpec lid flag
+-- TODO: So Mpr doesn't use the invalid flag
 getMpr :: Get Rec
 getMpr = do
     testNum <- u4
@@ -450,17 +456,70 @@ getMpr = do
     siteNum <- u1
     testFlg <- getTestFlags
     parmFlg <- getParametricFlags
-    -- TODO: record may end here if no more info
-    j <- fromIntegral <$> u2
-    -- TODO: record may end here if no more info
-    k <- fromIntegral <$> u2
-    rtnStat <- getNibbles j :: Get [U1]
-    rtnRslt <- replicateM k r4
-    testTxt <- mcn
-    -- TODO: record may end here if no more info
-    let info = Nothing -- [] -- TODO: parse OptionalInfo
 
-    return $ Mpr testNum headNum siteNum testFlg parmFlg rtnStat rtnRslt testTxt info
+    let returnEarly = return $ Mpr testNum headNum siteNum testFlg parmFlg Nothing
+    -- TODO: record may end here if no more info
+    e <- isEmpty
+    if e then returnEarly
+    else do
+      j <- fromIntegral <$> u2
+      e <- isEmpty
+      if e then returnEarly
+      else do
+        -- TODO: record may end here if no more info
+        k <- fromIntegral <$> u2
+        rtnStat <- if j == 0 then return $ Nothing
+                   else Just . ReturnedStates <$> getNibbles j
+        rtnRslt <- if k == 0 then return $ Nothing else Just .Results <$> replicateM k r4
+        testTxt <- liftA Label <$> mcn
+        alarmId <- liftA AlarmId <$> mcn
+        e <- isEmpty
+        if e then returnEarly
+        else do
+          optFlag  <- u1
+          resScal0 <- i1
+          llmScal0 <- i1
+          hlmScal0 <- i1
+          loLimit0 <- r4
+          hiLimit0 <- r4
+          startIn0 <- r4
+          incrIn0  <- r4
+          rtnIndx0  <- replicateM j u2
+          units    <- liftA Units <$> mcn
+          unitsIn  <- liftA StartingInputUnits <$> mcn
+          cResfmt  <- liftA CResultFormat <$> mcn
+          cLlmfmt  <- liftA CLowLimitFormat <$> mcn
+          cHlmfmt  <- liftA CHighLimitFormat <$> mcn
+          loSpec0  <- r4
+          hiSpec0  <- r4
+
+          let rtnIndx = if Prelude.null rtnIndx0 then Nothing
+                        else Just $ PinIndecies rtnIndx0
+
+          let  unlessBit b x | testBit optFlag b = Nothing
+                             | otherwise         = Just x
+          let resScal =  unlessBit 0 $ ResultExp resScal0
+          let startIn =  unlessBit 1 $ StartingInput startIn0
+          let incrIn =  unlessBit 1 $ IncrementInput incrIn0
+          let loSpec =  unlessBit 2 $ LowSpecLimit loSpec0
+          let hiSpec =  unlessBit 3 $ HighSpecLimit hiSpec0
+          let loLimit =  unlessBit 4 $ LowLimit loLimit0
+          let llmScal =  unlessBit 4 $ LowLimitExp llmScal0
+          let hiLimit =  unlessBit 5 $ HighLimit hiLimit0
+          let hlmScal =  unlessBit 5 $ HighLimitExp hlmScal0
+          -- Bits 6 and 7 seem completely redundnat with 4 and 5
+          -- I think 6 and 7 mean this test has no limit
+          -- Where 4 and 5 means it has a limit set by a preious record
+          -- I'll leave bits 6 and 7 as TODO.
+
+          let info = catMaybes [resScal, llmScal, hlmScal, loLimit, hiLimit, startIn, 
+                                incrIn, rtnIndx, units,  unitsIn, cResfmt, cLlmfmt,
+                                cHlmfmt, loSpec, hiSpec, testTxt, rtnStat, rtnRslt]
+
+          return $ Mpr testNum headNum siteNum testFlg parmFlg (Just info)
+
+
+
 
 -- Take a list of bytes and split into exactly n nibbles
 fromNibbles :: [U1] -> Int -> [U1]

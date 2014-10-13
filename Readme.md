@@ -89,5 +89,5 @@ encodings. I won't do it.
 
 ### Some tricky records and fields
 
-Not yet covering all fields of all Stdf records.
-Several interesting optional fields in MPR are not yet processed.
+There may be a few little-used fields getting dropped. Since I only have
+Advantest 93k STDF files to test it with, some things haven't gotten much QA.

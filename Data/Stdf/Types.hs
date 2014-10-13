@@ -270,9 +270,9 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , parametricFlags :: [ParametricFlag]
               -- j , stateCount :: U2
               -- k , resultCount :: U2
-              , states :: [U1] -- Nibbles! array of states? j states
-              , results :: [R4] -- k results
-              , testText :: Maybe Text
+              -- , states :: [U1] -- Nibbles! array of states? j states
+              -- , results :: [R4] -- k results
+              -- , testText :: Maybe Text
               , info :: Maybe [OptionalInfo] }
               -- , alarmId :: Maybe Text
               -- -- , OPT_FLG B1 optional stuff to parse
@@ -412,6 +412,7 @@ data OptionalInfo   = Units Text
                     | PatternGen U1  -- 255
                     | EnabledPins [U1] -- bitfield!
                     --
+                    | Results [R4]
                     | ResultExp I1
                     | LowLimitExp I1
                     | HighLimitExp I1
