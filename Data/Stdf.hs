@@ -291,23 +291,44 @@ getPrr = Prr <$> u1 <*> u1 <*> getPartFlag <*> u2 <*> u2 <*> mu2
 getPir :: Get Rec
 getPir = Pir <$> u1 <*> u1
 
+-- TODO: somewhere in Ptr or another record I forget to put the alarmId in info
 -- TODO: make sure to cover all "is optional if it is the last field in the record
 
 getTsr :: Get Rec
-getTsr = Tsr <$> u1 <*> u1 <*> getTestType <*> u4 <*> mu4 <*> mu4 <*> mu4 
-             <*> mcn <*> mcn <*> mcn -- TODO: actually get the optional data
-             <*> pure Nothing
-             <*> pure Nothing
-             <*> pure Nothing
-             <*> pure Nothing
-             <*> pure Nothing
-         where 
-               getTestType = charToTestType <$> c1
-               charToTestType 'P' = Just Parametric
-               charToTestType 'F' = Just Functional
-               charToTestType 'M' = Just MultiResultParametric
-               charToTestType ' ' = Nothing
-               charToTestType x = Just $ OtherTestType x
+getTsr = do
+    headNum <- u1
+    siteNum <- u1
+    testTyp <- getTestType 
+    testNum <- u4
+    execCnt <- mu4 
+    failCnt <- mu4
+    alrmCnt <- mu4
+    testNam <- mcn
+    seqNam <- mcn
+    testLbl <- mcn
+    empty <- isEmpty
+    optFlag <- if empty then return Nothing else Just <$> u1
+    empty2 <- isEmpty
+    timeInfo <- if empty2
+          then return $ Prelude.replicate 5 Nothing
+          else replicateM 5 (Just <$> r4)
+    let [testTim, testMin, testMax, tstSums, tstSqrs] = zipWith
+          checkOptBit (optBits optFlag) timeInfo
+    return $ Tsr headNum siteNum testTyp testNum execCnt failCnt
+                 alrmCnt testNam seqNam testLbl 
+                 testTim testMin testMax tstSums tstSqrs
+  where 
+        optBits :: Maybe U1 -> [Bool]
+        optBits Nothing = Prelude.replicate 5 True
+        optBits (Just x)  = map (testBit x) [2, 0, 1, 4, 5]
+        checkOptBit True ti = Nothing
+        checkOptBit False ti = ti
+        getTestType = charToTestType <$> c1
+        charToTestType 'P' = Parametric
+        charToTestType 'F' = Functional
+        charToTestType 'M' = MultiResultParametric
+        charToTestType ' ' = UnknownTestType
+        charToTestType x = OtherTestType x
 
 decodeTestFlags :: U1 -> [TestFlag]
 decodeTestFlags fl = if fl == 0

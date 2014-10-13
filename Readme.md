@@ -88,4 +88,4 @@ encodings. I won't do it.
 ### Some tricky records and fields
 
 Not yet covering all fields of all Stdf records.
-Several interesting optional fields in PTR, MPR and FTR are not yet processed.
+Several interesting optional fields in MPR and TSR are not yet processed.

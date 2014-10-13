@@ -239,7 +239,9 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
                 , partFix  :: Maybe Text }
         | Tsr { headId :: !U1
               , siteId :: !U1
-              , testType :: Maybe TestType
+              -- TODO: Json printing testType wierd like
+              -- "testType":{"MultiResultParametric":[]}
+              , testType :: TestType 
               , testId :: !U4
               , execCount :: Maybe U4
               , failCount :: Maybe U4
