@@ -36,6 +36,8 @@ jsonOptions = defaultOptions {
 
 flagOptions = defaultOptions
 
+instance ToJSON Milliseconds where
+    toJSON = genericToJSON jsonOptions
 instance ToJSON Minutes where
     toJSON = genericToJSON jsonOptions
 instance ToJSON Rec where
@@ -74,6 +76,9 @@ data Header = Header
     } deriving (Generic, Show)
 
 type Stdf = [Rec]
+
+data Milliseconds = Milliseconds { ms :: !U4 }
+    deriving (Generic, Show)
 
 data Minutes = Minutes { minutes :: !U2 }
     deriving (Generic, Show)
@@ -137,7 +142,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , siteId :: !U1
               , bin :: !U2
               , binCount :: !U4
-              , passFailBin :: PassFailBin -- TODO: HBIN_PF
+              , passFailBin :: PassFailBin
               , name :: Maybe Text }
         | Sbr { headId :: !U1
               , siteId :: !U1
@@ -161,8 +166,8 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
         | Plr { 
               -- Instead of Maybe [] opt for empty [Maybe]
                 indecies :: [U2]
-              , groupModes :: [GroupMode] -- TODO: GroupMode
-              , groupRadixes :: [Radix] -- TODO: GroupRadix
+              , groupModes :: [GroupMode]
+              , groupRadixes :: [Radix]
               -- Should really just use a string for state characters
               -- instead of Left/Right but failed since I don't have example PLR
               -- , programStateChars :: [Text] -- combine CharR and CharL at parse?
@@ -228,7 +233,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
                 , softBin  :: Maybe U2
                 , xCoord   :: Maybe I2
                 , yCoord   :: Maybe I2
-                , testTime :: Maybe U4 -- TODO: type milliseconds like minutes or call this field milliseconds
+                , testTime :: Maybe Milliseconds -- TODO: type milliseconds like minutes or call this field milliseconds
                 , partID   :: Maybe Text
                 , partTxt  :: Maybe Text
                 , partFix  :: Maybe Text }
@@ -256,7 +261,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , result :: Maybe R4
               , testText :: Maybe Text
               -- , alarmId :: Maybe Text -> optionalInfo
-              , info :: [OptionalInfo] } -- TODO: better name
+              , info :: [OptionalInfo] } -- TODO: better name -- Maybe so empty ones don't print in Json
         | Mpr { testId :: !U4
               , headId :: !U1
               , siteId :: !U1

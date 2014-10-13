@@ -67,6 +67,13 @@ File: test.stdf
 * StdfToJson -- prints each Stdf record as a one-line JSON object for easy importing into other languages for further processing
 
 
+Performance
+-----------
+
+Performance is very good but can be 50% better if you build with `-O2`.
+However compiling takes forever with `-O2`.
+
+
 Not Implemented
 ----------------
 

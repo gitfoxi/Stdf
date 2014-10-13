@@ -60,6 +60,11 @@ getTime = do
     secs <- u4
     return $ if secs == 0 then Nothing else Just $ posixSecondsToUTCTime $ realToFrac secs
 
+getMilliseconds :: Get (Maybe Milliseconds)
+getMilliseconds = do
+  milliseconds <- mu4
+  return $ Milliseconds <$> milliseconds
+
 getMinutes :: Get (Maybe Minutes)
 getMinutes = do
     mins <- u2
@@ -278,7 +283,7 @@ getPartFlag = do
 
 getPrr :: Get Rec
 getPrr = Prr <$> u1 <*> u1 <*> getPartFlag <*> u2 <*> u2 <*> mu2
-             <*> mi2 <*> mi2 <*> mu4 <*> mcn <*> mcn <*> mcn
+             <*> mi2 <*> mi2 <*> getMilliseconds <*> mcn <*> mcn <*> mcn
 
 getPir :: Get Rec
 getPir = Pir <$> u1 <*> u1
