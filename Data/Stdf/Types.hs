@@ -260,7 +260,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , result :: Maybe R4
               , testText :: Maybe Text
               -- , alarmId :: Maybe Text -> optionalInfo
-              , info :: [OptionalInfo] } -- TODO: better name -- Maybe so empty ones don't print in Json
+              , info :: Maybe [OptionalInfo] } -- TODO: better name -- Maybe so empty ones don't print in Json
         | Mpr { testId :: !U4
               , headId :: !U1
               , siteId :: !U1
@@ -271,7 +271,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , states :: [U1] -- Nibbles! array of states? j states
               , results :: [R4] -- k results
               , testText :: Maybe Text
-              , info :: [OptionalInfo] }
+              , info :: Maybe [OptionalInfo] }
               -- , alarmId :: Maybe Text
               -- -- , OPT_FLG B1 optional stuff to parse
               -- , resultExp :: Maybe I1
@@ -293,7 +293,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , headId :: !U1
               , siteId :: !U1
               , testFlags :: [TestFlag]
-              , info :: [OptionalInfo]
+              , info :: Maybe [OptionalInfo]
               -- -- , optFlg :: !U1 -- 8 bit packed binary -- record may have ended by here
               -- , cycleCount :: Maybe U4    -- To Optional Info
               -- , relativeVectorAddr :: Maybe U4
@@ -374,19 +374,19 @@ data ParametricFlag = ScaleError          -- bit 0
 -- TODO: Another pass at scaling flags
 -- Maybe better as sum type
 data OptionalInfo   = Units Text
-                    | LowSpecLimit Float
-                    | HighSpecLimit Float
+                    | LowSpecLimit R4
+                    | HighSpecLimit R4
                     | LowSpecLimitStr Text
                     | HighSpecLimitStr Text
                     | AlarmId Text
-                    | LowLimit Float
-                    | HighLimit Float
+                    | LowLimit R4
+                    | HighLimit R4
                     | LowLimitStr Text
                     | HighLimitStr Text
                     | ResultStr Text
-                    | StartingInput Float
+                    | StartingInput R4
                     | StartingInputUnits Text
-                    | IncrementInput Float
+                    | IncrementInput R4
                     -- change to a map of pinName -> state
                     | ReturnPinIndecies [U2]  -- k
                     | CycleCount U4
@@ -409,7 +409,14 @@ data OptionalInfo   = Units Text
                     | ResultText Text
                     | PatternGen U1  -- 255
                     | EnabledPins [U1] -- bitfield!
-                    deriving (Generic, Show)
+                    --
+                    | ResultExp I1
+                    | LowLimitExp I1
+                    | HighLimitExp I1
+                    | CResultFormat Text
+                    | CLowLimitFormat Text
+                    | CHighLimitFormat Text
+                    deriving (Generic, Show, Eq)
 
 data TestType = Parametric
               | Functional

@@ -292,6 +292,8 @@ getPrr = Prr <$> u1 <*> u1 <*> getPartFlag <*> u2 <*> u2 <*> mu2
 getPir :: Get Rec
 getPir = Pir <$> u1 <*> u1
 
+-- TODO: make sure to cover all "is optional if it is the last field in the record
+
 getTsr :: Get Rec
 getTsr = Tsr <$> u1 <*> u1 <*> getTestType <*> u4 <*> mu4 <*> mu4 <*> mu4 
              <*> mcn <*> mcn <*> mcn -- TODO: actually get the optional data
@@ -359,7 +361,9 @@ getPtr = do
         testText <- mcn
         alarmId <- mcn -- part of optionalInfo now
         -- optionalInfo <- getOptionalInfo
-        let optionalInfo = [] -- TODO
+        -- record may end here
+        optionalInfo <- getOptionalInfo
+
         let mresult = if validResult testFlags parametricFlags
                         then Just result
                         else Nothing
@@ -375,45 +379,50 @@ getPtr = do
         where
             validResult tf pf = all (`elem` [Pass, Fail]) tf 
                              && all (`notElem` [ScaleError, DriftError, Oscillation]) pf
-{-
-            getOptionalInfo :: Get (Maybe OptionalInfo)
+
+            getOptionalInfo :: Get (Maybe [OptionalInfo])
             getOptionalInfo = do
                     -- check we're not at the end of the buffer
                     noInfo <- isEmpty
                     if noInfo 
                         then return Nothing 
-                        else do
-                            optinfo <- getOptionalInfo'
-                            return $ Just optinfo
+                        else getOptionalInfo'
 
-            getOptionalInfo' :: Get OptionalInfo
+            getOptionalInfo' :: Get (Maybe [OptionalInfo])
             getOptionalInfo' = do
                 optFlag <- u1 -- getOptFlag
 
                 let [ invalidResultExp,      -- bit 0
-                    _,                     -- bit 1
-                    invalidLowSpecLimit,   -- bit 2
-                    invalidHighSpecLimit,  -- bit 3
-                    invalidLowLimit,       -- bit 4
-                    invalidHighLimit,      -- bit 5
-                    invalidLowTestLimit,   -- bit 6
-                    invalidHighTestLimit ] -- bit 7
-                    = Prelude.map (testBit optFlag) $ range (0,7)
+                      _,                     -- bit 1
+                      invalidLowSpecLimit,   -- bit 2
+                      invalidHighSpecLimit,  -- bit 3
+                      invalidLowLimit,       -- bit 4
+                      invalidHighLimit,      -- bit 5
+                      invalidLowTestLimit,   -- bit 6
+                      invalidHighTestLimit ] -- bit 7
+                      = Prelude.map (testBit optFlag) $ range (0,7)
 
                 let invalidLowTest  = invalidLowLimit || invalidLowTestLimit
                 let invalidHighTest = invalidHighLimit || invalidHighTestLimit
 
-                OptionalInfo <$> getOnFalse invalidResultExp i1
-                            <*> getOnFalse invalidLowTest i1
-                            <*> getOnFalse invalidHighTest i1
-                            <*> getOnFalse invalidLowTest r4
-                            <*> getOnFalse invalidHighTest r4
-                            <*> mcn <*> mcn <*> mcn <*> mcn 
-                            <*> getOnFalse invalidLowSpecLimit r4
-                            <*> getOnFalse invalidHighSpecLimit r4
--}
+                resScal <- liftA ResultExp <$> getOnFalse invalidResultExp i1
+                llmScal <- liftA LowLimitExp <$> getOnFalse invalidLowTest i1
+                hlmScal <- liftA HighLimitExp <$> getOnFalse invalidHighTest i1
+                loLimit <- liftA LowLimit <$> getOnFalse invalidLowTest r4
+                hiLimit <- liftA HighLimit <$> getOnFalse invalidHighTest r4
+                units <- liftA Units <$> mcn
+                cResFmt <- liftA CResultFormat <$> mcn 
+                cLlmFmt <- liftA CLowLimitFormat <$> mcn
+                cHlmFmt <- liftA CHighLimitFormat <$> mcn 
+                loSpec <- liftA LowSpecLimit <$> getOnFalse invalidLowSpecLimit r4
+                hiSpec <- liftA HighSpecLimit <$> getOnFalse invalidHighSpecLimit r4
 
--- TODO: So Mpr doesn't use the Invalid flag
+                let info = catMaybes [resScal, llmScal, hlmScal, loLimit, hiLimit, units,
+                                      cResFmt, cLlmFmt, cHlmFmt, loSpec]
+                traceM $ show info
+                return $ if Prelude.null info then Nothing else Just info
+
+-- TODO: So Mpr doesn't use the InvahiSpec lid flag
 getMpr :: Get Rec
 getMpr = do
     testNum <- u4
@@ -429,7 +438,7 @@ getMpr = do
     rtnRslt <- replicateM k r4
     testTxt <- mcn
     -- TODO: record may end here if no more info
-    let info = [] -- TODO: parse OptionalInfo
+    let info = Nothing -- [] -- TODO: parse OptionalInfo
 
     return $ Mpr testNum headNum siteNum testFlg parmFlg rtnStat rtnRslt testTxt info
 
@@ -478,11 +487,10 @@ getFtr = do
                 else getMoreInfo j0 k0
 
     let allInfo = info ++ moreInfo
+    let mayInfo | Prelude.null allInfo = Nothing
+                | otherwise            = Just allInfo
 
-    return $ Ftr testNum headNum siteNum testFlag allInfo
-                -- cycleCnt relVadr reptCnt numFail 
-                -- xFail yFail vectOff rtnIndx rtnStat pgmIndx pgmStat
-                -- failPin vecNam timeSet opCode testTxt alarmId progTxt rsltTxt patgNum spinMap
+    return $ Ftr testNum headNum siteNum testFlag mayInfo
 
   where 
    getMoreInfo j k = do
