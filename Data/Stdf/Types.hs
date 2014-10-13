@@ -363,7 +363,8 @@ data OptionalInfo   = Units Text
                     | IncrementInput Float
                     -- change to a map of pinName -> state
                     | ReturnPinIndecies [U2]  -- k
-                    | CycleCount U4    -- To Optional Info
+                    | CycleCount U4
+                    | RepeatCount U4
                     | RelativeVectorAddr U4
                     | NumFailingPins U4
                     | XLogicalFailureAddr I4
@@ -374,7 +375,7 @@ data OptionalInfo   = Units Text
                     | PgmStateIndecies [U2] -- k x U2 -> Parse pin states?
                     | PgmStates [U1] -- k NIBBLES! -> String
                     | FailPin [U1] -- bitfield! -> [PinName]
-                    | Vector Text
+                    | VectorName Text
                     | TimeSet Text
                     | OpCode Text
                     | Label Text

@@ -15,6 +15,10 @@ notRaw :: Rec -> Bool
 notRaw (Raw _) = False
 notRaw _       = True
 
+isFtr :: Rec -> Bool
+isFtr (Ftr{}) = True
+isFtr _ = False
+
 main = do
     args <- getArgs
     when (length args /= 1) $ do

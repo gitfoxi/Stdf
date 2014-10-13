@@ -31,6 +31,9 @@ import Data.UnixTime
 -- import Data.Time.Compat
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
+import Data.Maybe
+
+import Debug.Trace
 
 -- TODO: Travis
 -- TODO: JSON/XML data model for STDF
@@ -437,10 +440,11 @@ getNibbles nnibs = do
 
 
 getOnFalse :: Bool -> Get a -> Get (Maybe a)
-getOnFalse cond get =
-    if cond
-            then return Nothing
-            else Just <$> get
+getOnFalse cond get = do
+    x <- get
+    return $ if cond
+            then Nothing
+            else Just x
 
 getFtr :: Get Rec
 getFtr = do
@@ -449,28 +453,31 @@ getFtr = do
     siteNum <- u1
     testFlag <- getTestFlags  -- doesn't use the invalid bit
     -- TODO: record may end here, before rtnIcnt or pgmIcnt -- check isEmpty
-    {-
-    optFlag <- u1
+    empty <- isEmpty
+    info <- if empty then return []
+            else getInfo
+    -- may end here
+    emptyj <- isEmpty
+    j0 <- if emptyj then return 0
+         else fromIntegral <$> u2
+    -- may end here
+    emptyk <- isEmpty
+    k0 <- if emptyk then return 0
+         else fromIntegral <$> u2
 
-    let [noCycleCnt,
-         noRelVadr,
-         noReptCnt,
-         noNumFail,
-         noXYFail,
-         noVectOff] = Prelude.map (testBit optFlag) $ range (0, 5)
+    emptymi <- isEmpty
+    moreInfo <- if emptymi then return []
+                else getMoreInfo j0 k0
 
-    cycleCnt <- getOnFalse noCycleCnt u4
-    relVadr  <- getOnFalse noRelVadr u4
-    reptCnt  <- getOnFalse noReptCnt u4
-    numFail  <- getOnFalse noNumFail u4
-    xFail    <- getOnFalse noXYFail i4
-    yFail    <- getOnFalse noXYFail i4
-    vectOff  <- getOnFalse noVectOff i2
+    let allInfo = info ++ moreInfo
 
-    j <- fromIntegral <$> u2
-    k <- fromIntegral <$> u2
+    return $ Ftr testNum headNum siteNum testFlag allInfo
+                -- cycleCnt relVadr reptCnt numFail 
+                -- xFail yFail vectOff rtnIndx rtnStat pgmIndx pgmStat
+                -- failPin vecNam timeSet opCode testTxt alarmId progTxt rsltTxt patgNum spinMap
 
--- TODO Nothing if j/k == 0
+  where 
+   getMoreInfo j k = do
     rtnIndx <- replicateM j u2
     rtnStat <- getNibbles j
     pgmIndx <- replicateM k u2
@@ -485,14 +492,68 @@ getFtr = do
     progTxt <- mcn
     rsltTxt <- mcn
 
+    -- can it end here?
     patgNum <- mu1e255
     spinMap <- getBitField
-    -}
+    let patgNum = Nothing
+    let spinMap = []
 
-    return $ Ftr testNum headNum siteNum testFlag []
-                -- cycleCnt relVadr reptCnt numFail 
-                -- xFail yFail vectOff rtnIndx rtnStat pgmIndx pgmStat
-                -- failPin vecNam timeSet opCode testTxt alarmId progTxt rsltTxt patgNum spinMap
+    let rtnIndx' = if j == 0 then Nothing else Just rtnIndx
+    let rtnStat' = if j == 0 then Nothing else Just rtnStat
+    let pgmIndx' = if k == 0 then Nothing else Just pgmIndx
+    let pgmStat' = if k == 0 then Nothing else Just pgmStat
+    let failPin' = if Prelude.null failPin then Nothing else Just failPin
+    let spinMap' = if Prelude.null spinMap then Nothing else Just spinMap
+
+    return $ catMaybes [ ReturnPinIndecies <$> rtnIndx'
+                       , ReturnedStates <$> rtnStat'
+                       , PgmStateIndecies <$> pgmIndx'
+                       , PgmStates <$> pgmStat'
+                       , FailPin <$> failPin'
+                       , VectorName <$> vecNam
+                       , TimeSet <$> timeSet
+                       , OpCode <$> opCode
+                       , Label <$> testTxt
+                       , AlarmId <$> alarmId
+                       , ProgramText <$> progTxt
+                       , ResultText <$> rsltTxt
+                       , PatternGen <$> patgNum
+                       , EnabledPins <$> spinMap' ]
+
+   getInfo = do
+    optFlag <- u1
+
+    let [noCycleCnt,
+         noRelVadr,
+         noReptCnt,
+         noNumFail,
+         noXYFail,
+         noVectOff] = Prelude.map (testBit optFlag) $ range (0, 5)
+
+    -- Turns out you're supposed to get the byte
+    -- even if it's invalid
+    -- For a format seemingly obsessed with saving
+    -- a few bytes, this is surprising
+    cycleCnt <- getOnFalse noCycleCnt u4
+    relVadr  <- getOnFalse noRelVadr u4
+    reptCnt  <- getOnFalse noReptCnt u4
+    numFail  <- getOnFalse noNumFail u4
+    xFail    <- getOnFalse noXYFail i4
+    yFail    <- getOnFalse noXYFail i4
+    vectOff  <- getOnFalse noVectOff i2
+
+    return $ catMaybes
+              [CycleCount <$> cycleCnt,
+              RelativeVectorAddr <$> relVadr,
+              RepeatCount <$> reptCnt,
+              NumFailingPins <$> numFail,
+              XLogicalFailureAddr <$> xFail,
+              YLogicalFailureAddr <$> yFail,
+              OffsetFromVector <$> vectOff]
+
+{-
+
+    -}
 
 -- TODO: BitField type like [U1] which toJson prints as hex "FF AF 12 ..."
 getBitField :: Get [U1]
