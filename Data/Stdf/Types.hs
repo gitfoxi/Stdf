@@ -1,4 +1,7 @@
 
+-- TODO: Bad decision to use Data.Text.Lazy
+-- change to Data.ByteString.Char8
+
 {-# LANGUAGE DeriveGeneric #-}
 
 module Data.Stdf.Types where
@@ -257,6 +260,7 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
         | Ptr { testId :: !U4
               , headId :: !U1
               , siteId :: !U1
+              -- TODO: testFlags would be more convenient as a Set than a List
               , testFlags :: [TestFlag] -- B1 bitfield further parsing bits
               , parametricFlags :: [ParametricFlag] -- B1 bitfield further parsing bits
               , result :: Maybe R4

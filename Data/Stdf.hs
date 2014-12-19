@@ -14,6 +14,8 @@ module Data.Stdf ( parse
                  , parseFile
                  , Stdf(..)
                  , Rec(..)
+                 , OptionalInfo(..)
+                 , TestFlag(..)
                  ) where
 
 import Data.Stdf.Types
