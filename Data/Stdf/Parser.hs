@@ -4,31 +4,33 @@
 
 -- TODO: Less dependencies. I wonder if there's a tool that can tell me about unused imports
 
-module Data.Stdf.Parser where
+module Data.Stdf.Parser
+  ( parseFile
+  , parse
+  )
 
-import Data.Stdf.Types
+  where
+
 import Data.Binary.Get hiding (Fail)
-import Data.ByteString.Lazy.Char8 as BL hiding (show, elem, notElem, all, concatMap, concat, zipWith, map, head, replicate)
+import Data.ByteString.Lazy.Char8 as BL hiding (elem, notElem, all, concatMap, concat, zipWith, map, head, replicate)
 import Data.Bits (testBit, (.&.), shiftR)
 import Control.Applicative
 import Prelude hiding (show, Left, Right, replicate)
 import qualified Prelude
-import Text.Show
 import Control.Monad
 import qualified Data.ByteString.Base64.Lazy as Base64
 import Data.Text.Lazy.Encoding
 import Data.Text.Lazy hiding (all, concatMap, concat, zipWith, map, head)
 import GHC.Char
-import Data.Sequence (replicateA)
 import Data.Ix (range)
 import Data.Binary.IEEE754
 import Codec.Compression.GZip
-import Control.Exception
-import Data.UnixTime
--- import Data.Time.Compat
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
 import Data.Maybe
+import Data.Word
+
+import Data.Stdf.Types
 
 -- import Debug.Trace
 
@@ -94,9 +96,9 @@ getPgr = Pgr <$> u2 <*> mcn <*> getU2List
 getPlr :: Get Rec
 getPlr = do
     k <- fromIntegral <$> u2
-    indecies <- replicateM k u2
+    indexes <- replicateM k u2
     grpMode <- replicateM k u2
-    let groupModes = map toGroupMode grpMode
+    let grpModes = map toGroupMode grpMode
     grpRdx <-  replicateM k u1
     let radixes = map toRadix grpRdx
     pgmChaR <- replicateM k mcn
@@ -107,7 +109,7 @@ getPlr = do
     -- let pgmChars = zipWith (++) pgmChaL pgmChaR
     -- let rtnChars = zipWith (++) rtnChaL rtnChaR
 
-    return $ Plr indecies groupModes radixes pgmChaR rtnChaR pgmChaL rtnChaL
+    return $ Plr indexes grpModes radixes pgmChaR rtnChaR pgmChaL rtnChaL
 
 toGroupMode :: U2 -> GroupMode
 toGroupMode 00 = UnknownGroupMode
@@ -138,7 +140,6 @@ getSdr :: Get Rec
 getSdr = Sdr <$> u1 <*> u1 <*> getU1List <*> mcn <*> mcn 
              <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn
              <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn <*> mcn
--- getSdr = Sdr <$> u1 <*> u1 <*> u1 <*> getU1List <*> replicateA 16 mcn
 
 getWir :: Get Rec
 getWir = Wir <$> u1 <*> u1 <*> getTime <*> mcn
@@ -182,17 +183,22 @@ getWaferUnits = numToUnits <$> u1
 getU1List :: Get [U1]
 getU1List = do
     cnt <- u1
-    let count = fromIntegral cnt
-    replicateM count u1
+    let listLen = fromIntegral cnt
+    replicateM listLen u1
 
 getU2List :: Get [U2]
 getU2List = do
     cnt <- u2
-    let count = fromIntegral cnt
-    replicateM count u2
+    let listLen = fromIntegral cnt
+    replicateM listLen u2
 
+u1 :: Get Word8
 u1 = getWord8
+
+u2 :: Get Word16
 u2 = getWord16le
+
+u4 :: Get Word32
 u4 = getWord32le
 
 r4 :: Get R4
@@ -214,7 +220,7 @@ mu2, mu2e0 :: Get (Maybe U2)
 mu2 = missing (65535 :: U2) <$> u2
 mu2e0 = missing (0 :: U2) <$> u2
 
-mu1e0 :: Get (Maybe U1)
+mu1e0, mu1e255 :: Get (Maybe U1)
 mu1e0 = missing (0 :: U1) <$> u1
 mu1e255 = missing (255 :: U1) <$> u1
 
@@ -248,21 +254,21 @@ mi2 = do
     x <- i2
     return $ case x + 1 of
         (-32767) -> Nothing
-        otherwise -> Just x
+        _        -> Just x
 
 mu4 :: Get (Maybe U4)
 mu4 = do
     x <- u4
     return $ case x of
         4294967295 -> Nothing
-        otherwise -> Just x
+        _          -> Just x
 
 cn :: Get Text
 cn = do
-    len <- u1
-    case len of
+    cnlen <- u1
+    case cnlen of
         0         -> return ""
-        otherwise -> liftM decodeUtf8 $ getLazyByteString (fromIntegral len)
+        _         -> liftM decodeUtf8 $ getLazyByteString (fromIntegral cnlen)
 
 bit :: U1 -> Int -> Bool
 bit = testBit
@@ -295,8 +301,8 @@ getTsr = do
     testNam <- mcn
     seqNam <- mcn
     testLbl <- mcn
-    empty <- isEmpty
-    optFlag <- if empty then return Nothing else Just <$> u1
+    optempty <- isEmpty
+    optFlag <- if optempty then return Nothing else Just <$> u1
     empty2 <- isEmpty
     timeInfo <- if empty2
           then return $ Prelude.replicate 5 Nothing
@@ -310,7 +316,7 @@ getTsr = do
         optBits :: Maybe U1 -> [Bool]
         optBits Nothing = Prelude.replicate 5 True
         optBits (Just x)  = map (testBit x) [2, 0, 1, 4, 5]
-        checkOptBit True ti = Nothing
+        checkOptBit True _    = Nothing
         checkOptBit False ti = ti
         getTestType = charToTestType <$> c1
         charToTestType 'P' = Parametric
@@ -331,7 +337,7 @@ decodeTestFlags fl = if fl == 0
                          mapTf 4 = NotExecuted -- bit 4
                          mapTf 5 = Aborted     -- bit 5
                          mapTf 6 = InValid     -- bit 6
-                         mapTf 7 = Fail        -- bit 7
+                         mapTf _ = Fail        -- bit 7
 
 decodeParametricFlags :: U1 -> [ParametricFlag]
 decodeParametricFlags = mkFlagList mapPf
@@ -343,7 +349,7 @@ decodeParametricFlags = mkFlagList mapPf
         mapPf 4 =  FailLowLimit        -- bit 4
         mapPf 5 =  PassAlternateLimits -- bit 5
         mapPf 6 =  PassOnEqLowLimit    -- bit 6
-        mapPf 7 =  PassOnEqHighLimit   -- bit 7
+        mapPf _ =  PassOnEqHighLimit   -- bit 7
 
 mkFlagList :: (Int -> a) -> U1 -> [a]
 mkFlagList func flags = [func bi | bi <- range (0, 7), testBit flags bi]
@@ -508,7 +514,8 @@ getMpr = do
 
 -- Take a list of bytes and split into exactly n nibbles
 fromNibbles :: [U1] -> Int -> [U1]
-fromNibbles [byte] 0         = []
+fromNibbles []     _         = []
+fromNibbles _      0         = []
 fromNibbles [byte] 1         = [0xF .&. byte]
 fromNibbles [byte] 2         = [0xF .&. byte, byte `shiftR` 4]
 fromNibbles (byte:bytes) n = 0xF .&. byte : byte `shiftR` 4 : fromNibbles bytes (n - 2)
@@ -534,10 +541,10 @@ getFtr = do
     siteNum <- u1
     testFlag <- getTestFlags  -- doesn't use the invalid bit
     -- record may end here, before rtnIcnt or pgmIcnt -- check isEmpty
-    empty <- isEmpty
+    optempty <- isEmpty
 
     (cycleCnt, relVadr, reptCnt, numFail, xFail, yFail, vectOff) <-
-        if empty
+        if optempty
           then
             return
               (Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing)
@@ -601,8 +608,6 @@ getFtr = do
             -- can it end here?
             patgNum <- mu1e255
             spinMap <- getBitField
-            let patgNum = Nothing
-            let spinMap = []
 
             let rtnIndx' = if j == 0 then Nothing else Just rtnIndx
             let rtnStat' = if j == 0 then Nothing else Just rtnStat
@@ -681,8 +686,8 @@ getDtr = Dtr <$> cn
 
 ----------------------------------------------------------------
 getRawRec :: Integral a => a -> Get Rec
-getRawRec len = do
-    bytes <- getLazyByteString (fromIntegral len)
+getRawRec reclen = do
+    bytes <- getLazyByteString (fromIntegral reclen)
     return Raw { raw = (decodeUtf8 . Base64.encode) bytes }
 
 -- First get the 'len' number of bytes
@@ -700,39 +705,39 @@ getRec hdr = do
 processRec :: Header -> ByteString -> Rec
 processRec hdr = runGet (specificGet hdr)
 
-typStdfInfo    = 0
-subFar = 10
-subAtr = 20
-typPerLot      = 1
-subMir = 10
-subMrr = 20
-subPcr = 30
-subHbr = 40
-subSbr = 50
-subPmr = 60
-subPgr = 62
-subPlr = 63
-subRdr = 70
-subSdr = 80
-typPerWafer    = 2
-subWir = 10
-subWrr = 20
-subWcr = 30
-typPerPart     = 5
-subPir = 10
-subPrr = 20
-typPerTest     = 10
-subTsr = 30
-typPerTestExec = 15
-subPtr = 10
-subMpr = 15
-subFtr = 20
-typPerProgSeg  = 20
-subBps = 10
-subEps = 20
-typGeneric     = 50
-subGdr = 10
-subDtr = 30
+-- typStdfInfo    = 0
+-- subFar = 10
+-- subAtr = 20
+-- typPerLot      = 1
+-- subMir = 10
+-- subMrr = 20
+-- subPcr = 30
+-- subHbr = 40
+-- subSbr = 50
+-- subPmr = 60
+-- subPgr = 62
+-- subPlr = 63
+-- subRdr = 70
+-- subSdr = 80
+-- typPerWafer    = 2
+-- subWir = 10
+-- subWrr = 20
+-- subWcr = 30
+-- typPerPart     = 5
+-- subPir = 10
+-- subPrr = 20
+-- typPerTest     = 10
+-- subTsr = 30
+-- typPerTestExec = 15
+-- subPtr = 10
+-- subMpr = 15
+-- subFtr = 20
+-- typPerProgSeg  = 20
+-- subBps = 10
+-- subEps = 20
+-- typGeneric     = 50
+-- subGdr = 10
+-- subDtr = 30
 
 -- Dispatch table for record types
 specificGet :: Header -> Get Rec
@@ -771,7 +776,7 @@ specificGet (Header _ 50 10) = getGdr
 specificGet (Header _ 50 30) = getDtr
 
 --
-specificGet (Header len _ _) = getRawRec len
+specificGet (Header hdrlen _ _) = getRawRec hdrlen
 
 getBinRec :: Get BinRec
 getBinRec = do
@@ -790,8 +795,8 @@ nextRec = do
 
 getStdf :: Get Stdf
 getStdf = do
-    empty <- isEmpty
-    if empty
+    stdfempty <- isEmpty
+    if stdfempty
         then return []
         else do record   <- nextRec
                 recs <- getStdf

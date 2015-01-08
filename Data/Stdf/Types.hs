@@ -8,7 +8,6 @@ module Data.Stdf.Types where
 
 import Data.Word
 import Data.Int
-import Foreign.C.Types
 import Data.Text.Lazy
 import GHC.Generics hiding (U1, C1)
 import Data.Aeson
@@ -31,12 +30,14 @@ type R4 = Float -- CFloat
 type R8 = Double -- CDouble
 type C1 = Char
 
+jsonOptions :: Options
 jsonOptions = defaultOptions {
       allNullaryToStringTag = False
     , omitNothingFields = True
     , sumEncoding = ObjectWithSingleField
     }
 
+flagOptions :: Options
 flagOptions = defaultOptions
 
 instance ToJSON Milliseconds where

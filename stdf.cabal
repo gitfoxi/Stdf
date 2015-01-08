@@ -154,7 +154,7 @@ library
   exposed-modules:     Data.Stdf, Data.Stdf.WaferMap, Data.Stdf.Types
   
   -- Modules included in this library but not exported.
-  -- other-modules:       
+  other-modules:       Data.Stdf.Parser
   
   -- LANGUAGE extensions used by modules in this package.
   other-extensions:    DeriveGeneric, OverloadedStrings
