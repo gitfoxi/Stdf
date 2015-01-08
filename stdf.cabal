@@ -10,7 +10,7 @@ name:                stdf
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.2.0.0
+version:             0.3.0.0
 
 -- A short (one-line) description of the package.
 synopsis:            Parse Structured Test Data Format (STDF)
@@ -48,8 +48,108 @@ extra-source-files:  Readme.md
 -- Constraint on the version of Cabal needed to build this package.
 cabal-version:       >=1.10
 
+description: 
+    Data.Stdf
+    =========
+
+    Structured Test Data Format (STDF) is used to log test data by semiconductor automated test equipment (ATE).
+
+    There's a couple of good, open-source libraries for parsing STDF, notably [PyStdf](https://github.com/cmars/pystdf).
+
+    Latest version: 0.2
+
+    [![Build Status](https://travis-ci.org/gitfoxi/Stdf.svg)](https://travis-ci.org/gitfoxi/Stdf)
+
+    The Data.Stdf advantage
+    -----------------------
+
+    1. Haskell
+    2. Fast
+
+
+    Install
+    -------
+
+        cabal install stdf
+
+    Or for the latest revision, clone and build from here.
+
+    Usage
+    -----
+
+    Here's an example of converting STDF to JSON. (What else would you want to do
+    with it?)
+
+        import Data.Stdf
+        import qualified Data.ByteString.Lazy.Char8 as BL
+        import Data.Aeson
+
+        -- unparsed records have type Raw for the time being
+        notRaw :: Rec -> Bool
+        notRaw (Raw _) = False
+        notRaw _       = True
+
+        main = do
+            raw <- BL.readFile "test.stdf"
+            let recs = parse raw
+            let goodRecs = filter notRaw recs
+            mapM_ (BL.putStrLn . encode) goodRecs
+
+
+    Included Examples Applications
+    ------------------------------
+
+    * WaferMap -- prints a pretty wafermap like this:
+
+    ```
+    $ Examples/WaferMap test.stdf
+    File: test.stdf
+    .   .   .   .   .   11  11  11  11  11  .   .   .   .   .   .
+    .   .   .   11  11  11  11  6   1   6   11  11  11  .   .   .
+    .   .   11  11  1   11  11  11  1   11  1   1   11  11  .   .
+    .   1   1   1   11  1   1   1   1   6   6   6   1   1   11  .
+    203 11  11  11  11  11  1   6   11  1   1   11  1   11  11  .
+    11  11  11  11  1   11  6   1   1   1   11  11  11  11  11  11
+    11  11  11  11  1   1   11  1   11  6   1   11  1   11  11  11
+    203 11  11  1   1   11  6   1   11  212 6   1   11  11  11  .
+    .   200 6   11  1   1   1   1   1   6   11  1   1   11  11  .
+    .   .   11  11  11  11  1   1   1   11  1   1   1   11  .   .
+    .   .   .   11  11  1   11  11  1   11  11  11  11  .   .   .
+    .   .   .   .   .   11  11  11  11  200 212 .   .   .   .   .
+    ```
+
+    * StdfToJson -- prints each Stdf record as a one-line JSON object for easy importing into other languages for further processing
+    * StdfToYaml -- Like StdfToJson but it prints a YAML document. YAML is vastly
+      slower and more human-readable than JSON.
+
+
+    Performance
+    -----------
+
+    Performance is very good but can be 50% better if you build with `-O2`.
+    However compiling takes forever with `-O2`.
+
+
+    Not Implemented
+    ----------------
+
+    ### Non-Intel floating-point and endianness
+
+    It really blows my mind that Stdf expects the parser to support any N CPU bit
+    encodings. I won't do it.
+
+    ### Some tricky records and fields
+
+    There may be a few little-used fields getting dropped. Since I only have
+    Advantest 93k STDF files to test it with, some things haven't gotten much QA.
+
+source-repository head
+  type: git
+  location: git://github.com/gitfoxi/Stdf.git
+
 
 library
+
   -- Modules exported by the library.
   exposed-modules:     Data.Stdf, Data.Stdf.WaferMap, Data.Stdf.Types
   
@@ -74,18 +174,18 @@ Executable StdfToJson
   hs-source-dirs: Examples
   default-language:    Haskell2010
   -- GHC-Options: -O
-  build-depends:       base >=4.6 && <4.8, bytestring >=0.10 && <0.11, binary >=0.7 && <0.8, text >=1.1 && <1.2, base64-bytestring >=1.0 && <1.1, aeson >=0.8 && <0.9, split >=0.2 && <0.3, stdf >= 0.2
+  build-depends:       base >=4.6 && <4.8, bytestring >=0.10 && <0.11, binary >=0.7 && <0.8, text >=1.1 && <1.2, base64-bytestring >=1.0 && <1.1, aeson >=0.8 && <0.9, split >=0.2 && <0.3, stdf >= 0.3
 
 Executable StdfToYaml
   main-is: StdfToYaml.hs
   hs-source-dirs: Examples
   default-language:    Haskell2010
   -- GHC-Options: -O
-  build-depends:       base >=4.6 && <4.8, bytestring >=0.10 && <0.11, binary >=0.7 && <0.8, text >=1.1 && <1.2, base64-bytestring >=1.0 && <1.1, aeson >=0.8 && <0.9, split >=0.2 && <0.3, stdf >= 0.2, yaml >= 0.8
+  build-depends:       base >=4.6 && <4.8, bytestring >=0.10 && <0.11, binary >=0.7 && <0.8, text >=1.1 && <1.2, base64-bytestring >=1.0 && <1.1, aeson >=0.8 && <0.9, split >=0.2 && <0.3, stdf >= 0.3, yaml >= 0.8
 
 Executable WaferMap
   main-is: WaferMap.hs
   hs-source-dirs: Examples
   default-language:    Haskell2010
   -- GHC-Options: -O
-  build-depends:       base >=4.6 && <4.8, bytestring >=0.10 && <0.11, binary >=0.7 && <0.8, text >=1.1 && <1.2, base64-bytestring >=1.0 && <1.1, aeson >=0.8 && <0.9, split >=0.2 && <0.3, stdf >= 0.2
+  build-depends:       base >=4.6 && <4.8, bytestring >=0.10 && <0.11, binary >=0.7 && <0.8, text >=1.1 && <1.2, base64-bytestring >=1.0 && <1.1, aeson >=0.8 && <0.9, split >=0.2 && <0.3, stdf >= 0.3

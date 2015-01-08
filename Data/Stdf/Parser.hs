@@ -8,10 +8,10 @@ module Data.Stdf.Parser where
 
 import Data.Stdf.Types
 import Data.Binary.Get hiding (Fail)
-import Data.ByteString.Lazy.Char8 as BL hiding (show, elem, notElem, all, concatMap, concat, zipWith, map, head)
+import Data.ByteString.Lazy.Char8 as BL hiding (show, elem, notElem, all, concatMap, concat, zipWith, map, head, replicate)
 import Data.Bits (testBit, (.&.), shiftR)
 import Control.Applicative
-import Prelude hiding (show, Left, Right)
+import Prelude hiding (show, Left, Right, replicate)
 import qualified Prelude
 import Text.Show
 import Control.Monad
@@ -535,101 +535,101 @@ getFtr = do
     testFlag <- getTestFlags  -- doesn't use the invalid bit
     -- record may end here, before rtnIcnt or pgmIcnt -- check isEmpty
     empty <- isEmpty
-    info <- if empty then return []
-            else getInfo
+
+    (cycleCnt, relVadr, reptCnt, numFail, xFail, yFail, vectOff) <-
+        if empty
+          then
+            return
+              (Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing)
+          else
+            do
+                optFlag <- u1
+                let
+                    [ noCycleCnt
+                      , noRelVadr
+                      , noReptCnt
+                      , noNumFail
+                      , noXYFail
+                      , noVectOff
+                      ] = Prelude.map (testBit optFlag) $ range (0, 5)
+
+                -- Turns out you're supposed to get the byte
+                -- even if it's invalid
+                -- For a format seemingly obsessed with saving
+                -- a few bytes, this is surprising
+                a <- getOnFalse noCycleCnt u4
+                b <- getOnFalse noRelVadr u4
+                c <- getOnFalse noReptCnt u4
+                d <- getOnFalse noNumFail u4
+                e <- getOnFalse noXYFail i4
+                f <- getOnFalse noXYFail i4
+                g <- getOnFalse noVectOff i2
+                return (a,b,c,d,e,f,g)
+
     -- may end here
     emptyj <- isEmpty
-    j0 <- if emptyj then return 0
+    j <- if emptyj then return 0
          else fromIntegral <$> u2
     -- may end here
     emptyk <- isEmpty
-    k0 <- if emptyk then return 0
+    k <- if emptyk then return 0
          else fromIntegral <$> u2
 
     emptymi <- isEmpty
-    moreInfo <- if emptymi then return []
-                else getMoreInfo j0 k0
 
-    let allInfo = info ++ moreInfo
-    let mayInfo | Prelude.null allInfo = Nothing
-                | otherwise            = Just allInfo
 
-    return $ Ftr testNum headNum siteNum testFlag mayInfo
 
-  where 
-   getMoreInfo j k = do
-    rtnIndx <- replicateM j u2
-    rtnStat <- getNibbles j
-    pgmIndx <- replicateM k u2
-    pgmStat <- getNibbles k
+    (rtnIndx, rtnStat, pgmIndx, pgmStat, failPin, vecNam, timeSet, opCode, testTxt, alarmId, progTxt, rsltTxt, patgNum, spinMap) <-
+      if emptymi
+        then return
+          (Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing)
+        else do
+            rtnIndx <- replicateM j u2
+            rtnStat <- getNibbles j
+            pgmIndx <- replicateM k u2
+            pgmStat <- getNibbles k
 
-    failPin <- getBitField
-    vecNam  <- mcn
-    timeSet <- mcn
-    opCode  <- mcn
-    testTxt <- mcn
-    alarmId <- mcn
-    progTxt <- mcn
-    rsltTxt <- mcn
+            failPin <- getBitField
+            vecNam  <- mcn
+            timeSet <- mcn
+            opCode  <- mcn
+            testTxt <- mcn
+            alarmId <- mcn
+            progTxt <- mcn
+            rsltTxt <- mcn
 
-    -- can it end here?
-    patgNum <- mu1e255
-    spinMap <- getBitField
-    let patgNum = Nothing
-    let spinMap = []
+            -- can it end here?
+            patgNum <- mu1e255
+            spinMap <- getBitField
+            let patgNum = Nothing
+            let spinMap = []
 
-    let rtnIndx' = if j == 0 then Nothing else Just rtnIndx
-    let rtnStat' = if j == 0 then Nothing else Just rtnStat
-    let pgmIndx' = if k == 0 then Nothing else Just pgmIndx
-    let pgmStat' = if k == 0 then Nothing else Just pgmStat
-    let failPin' = if Prelude.null failPin then Nothing else Just failPin
-    let spinMap' = if Prelude.null spinMap then Nothing else Just spinMap
+            let rtnIndx' = if j == 0 then Nothing else Just rtnIndx
+            let rtnStat' = if j == 0 then Nothing else Just rtnStat
+            let pgmIndx' = if k == 0 then Nothing else Just pgmIndx
+            let pgmStat' = if k == 0 then Nothing else Just pgmStat
+            let failPin' = if Prelude.null failPin then Nothing else Just failPin
+            let spinMap' = if Prelude.null spinMap then Nothing else Just spinMap
 
-    return $ catMaybes [ ReturnPinIndecies <$> rtnIndx'
-                       , ReturnedStates <$> rtnStat'
-                       , PgmStateIndecies <$> pgmIndx'
-                       , PgmStates <$> pgmStat'
-                       , FailPin <$> failPin'
-                       , VectorName <$> vecNam
-                       , TimeSet <$> timeSet
-                       , OpCode <$> opCode
-                       , Label <$> testTxt
-                       , AlarmId <$> alarmId
-                       , ProgramText <$> progTxt
-                       , ResultText <$> rsltTxt
-                       , PatternGen <$> patgNum
-                       , EnabledPins <$> spinMap' ]
+            return $ (  rtnIndx'
+                     ,  rtnStat'
+                     ,  pgmIndx'
+                     ,  pgmStat'
+                     ,  failPin'
+                     ,  vecNam
+                     ,  timeSet
+                     ,  opCode
+                     ,  testTxt
+                     ,  alarmId
+                     ,  progTxt
+                     ,  rsltTxt
+                     ,  patgNum
+                     ,  spinMap' )
 
-   getInfo = do
-    optFlag <- u1
-
-    let [noCycleCnt,
-         noRelVadr,
-         noReptCnt,
-         noNumFail,
-         noXYFail,
-         noVectOff] = Prelude.map (testBit optFlag) $ range (0, 5)
-
-    -- Turns out you're supposed to get the byte
-    -- even if it's invalid
-    -- For a format seemingly obsessed with saving
-    -- a few bytes, this is surprising
-    cycleCnt <- getOnFalse noCycleCnt u4
-    relVadr  <- getOnFalse noRelVadr u4
-    reptCnt  <- getOnFalse noReptCnt u4
-    numFail  <- getOnFalse noNumFail u4
-    xFail    <- getOnFalse noXYFail i4
-    yFail    <- getOnFalse noXYFail i4
-    vectOff  <- getOnFalse noVectOff i2
-
-    return $ catMaybes
-              [CycleCount <$> cycleCnt,
-              RelativeVectorAddr <$> relVadr,
-              RepeatCount <$> reptCnt,
-              NumFailingPins <$> numFail,
-              XLogicalFailureAddr <$> xFail,
-              YLogicalFailureAddr <$> yFail,
-              OffsetFromVector <$> vectOff]
+    return $
+      Ftr testNum headNum siteNum testFlag 
+          cycleCnt relVadr reptCnt numFail xFail yFail vectOff
+          rtnIndx rtnStat pgmIndx pgmStat failPin vecNam timeSet opCode testTxt alarmId progTxt rsltTxt patgNum spinMap
 
 -- TODO: BitField type like [U1] which toJson prints as hex "FF AF 12 or like STDFreader print bits 10000000 00010101
 getBitField :: Get [U1]

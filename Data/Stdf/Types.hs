@@ -299,30 +299,31 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , headId :: !U1
               , siteId :: !U1
               , testFlags :: [TestFlag]
-              , info :: Maybe [OptionalInfo]
+              -- , info :: Maybe [OptionalInfo]
               -- -- , optFlg :: !U1 -- 8 bit packed binary -- record may have ended by here
-              -- , cycleCount :: Maybe U4    -- To Optional Info
-              -- , relativeVectorAddr :: Maybe U4
-              -- , numFailingPins :: Maybe U4
-              -- , xLogicalFailureAddr :: Maybe I4
-              -- , yLogicalFailureAddr :: Maybe I4
-              -- , offsetFromVector :: Maybe I2
-              -- -- j U2
-              -- -- k U2
-              -- , pinIndecies :: Maybe [U2] -- j x U2
-              -- , returnedStates :: Maybe [U1] -- j NIBBLES!
-              -- , pgmStateIndecies :: Maybe [U2] -- k x U2
-              -- , pgmStates :: Maybe [U1] -- k NIBBLES!
-              -- , failPin :: Maybe [U1] -- bitfield!
-              -- , vector :: Maybe Text
-              -- , timeSet :: Maybe Text
-              -- , opCode :: Maybe Text
-              -- , label :: Maybe Text
-              -- , alarmId :: Maybe Text
-              -- , programText :: Maybe Text
-              -- , resultText :: Maybe Text
-              -- , patternGen :: Maybe U1  -- 255
-              -- , enabledPins :: Maybe [U1] -- bitfield!
+              , cycleCount :: Maybe U4    -- To Optional Info
+              , relativeVectorAddr :: Maybe U4
+              , repeatCount :: !(Maybe U4)
+              , numFailingPins :: Maybe U4
+              , xLogicalFailureAddr :: Maybe I4
+              , yLogicalFailureAddr :: Maybe I4
+              , offsetFromVector :: Maybe I2
+              -- j U2
+              -- k U2
+              , pinIndexes :: Maybe [U2] -- j x U2
+              , returnedStates :: Maybe [U1] -- j NIBBLES!
+              , pgmStateIndecies :: Maybe [U2] -- k x U2
+              , pgmStates :: Maybe [U1] -- k NIBBLES!
+              , failPin :: Maybe [U1] -- bitfield!
+              , vector :: Maybe Text
+              , timeSet :: Maybe Text
+              , opCode :: Maybe Text
+              , testText :: Maybe Text
+              , alarmId :: Maybe Text
+              , programText :: Maybe Text
+              , resultText :: Maybe Text
+              , patternGen :: Maybe U1  -- 255
+              , enabledPins :: Maybe [U1] -- bitfield!
               }
         | Bps { sequencerName :: Maybe Text }  -- Begin Program Secion
         | Eps -- End Program Section: no payload
