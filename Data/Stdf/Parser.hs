@@ -12,15 +12,16 @@ module Data.Stdf.Parser
   where
 
 import Data.Binary.Get hiding (Fail)
-import Data.ByteString.Lazy.Char8 as BL hiding (elem, notElem, all, concatMap, concat, zipWith, map, head, replicate)
+import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.ByteString.Char8 as Char8
 import Data.Bits (testBit, (.&.), shiftR)
 import Control.Applicative
 import Prelude hiding (show, Left, Right, replicate)
 import qualified Prelude
 import Control.Monad
-import qualified Data.ByteString.Base64.Lazy as Base64
-import Data.Text.Lazy.Encoding
-import Data.Text.Lazy hiding (all, concatMap, concat, zipWith, map, head)
+import qualified Data.ByteString.Base64 as Base64
+import qualified Data.Text.Encoding as Text
+import qualified Data.Text.Lazy as Text
 import GHC.Char
 import Data.Ix (range)
 import Data.Binary.IEEE754
@@ -268,7 +269,7 @@ cn = do
     cnlen <- u1
     case cnlen of
         0         -> return ""
-        _         -> liftM decodeUtf8 $ getLazyByteString (fromIntegral cnlen)
+        _         -> getByteString (fromIntegral cnlen)
 
 bit :: U1 -> Int -> Bool
 bit = testBit
@@ -687,8 +688,8 @@ getDtr = Dtr <$> cn
 ----------------------------------------------------------------
 getRawRec :: Integral a => a -> Get Rec
 getRawRec reclen = do
-    bytes <- getLazyByteString (fromIntegral reclen)
-    return Raw { raw = (decodeUtf8 . Base64.encode) bytes }
+    bytes <- getByteString (fromIntegral reclen)
+    return Raw { raw = Base64.encode bytes }
 
 -- First get the 'len' number of bytes
 -- Although you could just parse the stream directly you would be
@@ -702,7 +703,7 @@ getRec hdr = do
 
 
 -- Attach handlers for specific headers here
-processRec :: Header -> ByteString -> Rec
+processRec :: Header -> BL.ByteString -> Rec
 processRec hdr = runGet (specificGet hdr)
 
 -- typStdfInfo    = 0
@@ -802,7 +803,7 @@ getStdf = do
                 recs <- getStdf
                 return (record:recs)
 
-isGzipped :: ByteString -> IO Bool
+isGzipped :: BL.ByteString -> IO Bool
 isGzipped bs = do
     let magic = runGet getWord16le bs
     return $ magic == 0x8b1f
@@ -817,5 +818,5 @@ parseFile fn = do
 
 -- | Parse an Stdf from a ByteString in case you want to open your own files or
 -- | parse a stream off the tester or something
-parse :: ByteString -> Stdf
+parse :: BL.ByteString -> Stdf
 parse = runGet getStdf

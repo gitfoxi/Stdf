@@ -1,18 +1,16 @@
 
--- TODO: Bad decision to use Data.Text.Lazy
--- change to Data.ByteString.Char8
-
 {-# LANGUAGE DeriveGeneric #-}
 
 module Data.Stdf.Types where
 
 import Data.Word
 import Data.Int
-import Data.Text.Lazy
+import Data.ByteString.Char8
 import GHC.Generics hiding (U1, C1)
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Time.Clock
+import qualified Data.Text.Encoding as ByteString
 
 -- Time is local unix time. Shouldn't they put the time zone in the file
 -- in order for this to have any meaning? What if the data isn't being parsed
@@ -39,6 +37,12 @@ jsonOptions = defaultOptions {
 
 flagOptions :: Options
 flagOptions = defaultOptions
+
+-- warns of "Orphan instance" but without it, won't derive other ToJSON instances
+-- could be much faster if text was made by copying the buffer rather than decoding
+-- but decodeASCII is depricated
+instance ToJSON ByteString where
+    toJSON = toJSON . ByteString.decodeUtf8
 
 instance ToJSON Milliseconds where
     toJSON = genericToJSON jsonOptions
@@ -88,11 +92,11 @@ data Minutes = Minutes { minutes :: !U2 }
     deriving (Generic, Show)
 
 -- The mother of all datatypes
-data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother. what's this good for?
+data Rec= Raw { raw :: !ByteString } -- base64 TODO: URL encoding or maybe don't bother. what's this good for?
         | Far { cpuType  :: !U1
               , stdfVersion  :: !U1 }
-        | Atr { modificationTime :: Maybe UTCTime
-              , commandLine :: Maybe Text }
+        | Atr { modificationTime :: !(Maybe UTCTime)
+              , commandLine :: Maybe ByteString }
         | Mir { setupTime :: Maybe UTCTime
               , startTime :: Maybe UTCTime
               , station :: !U1
@@ -101,40 +105,40 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , protectionCode :: Maybe C1 -- ' '
               , burninTime :: Maybe Minutes -- 65,535
               , commandCode :: Maybe C1 -- ' '
-              , lotId :: Text
-              , partType :: Text
-              , nodeName :: Text
-              , testerType :: Text
-              , jobName :: Text
-              , jobRevision :: Maybe Text
-              , subLotId :: Maybe Text
-              , operatorName :: Maybe Text
-              , execType :: Maybe Text
-              , execVersion :: Maybe Text
-              , testCode :: Maybe Text
-              , testTemperature :: Maybe Text
-              , userText :: Maybe Text
-              , auxFile :: Maybe Text
-              , packageType :: Maybe Text
-              , familyId :: Maybe Text
-              , dateCode :: Maybe Text
-              , facilityId :: Maybe Text
-              , floorId :: Maybe Text
-              , processId :: Maybe Text
-              , operationFreq :: Maybe Text
-              , specName :: Maybe Text
-              , specVersion :: Maybe Text
-              , flowId :: Maybe Text
-              , setupId :: Maybe Text
-              , designRev :: Maybe Text
-              , engineeringLotId :: Maybe Text
-              , romCodeId :: Maybe Text
-              , testerSerialNum :: Maybe Text
-              , supervisorName :: Maybe Text }
+              , lotId :: ByteString
+              , partType :: ByteString
+              , nodeName :: ByteString
+              , testerType :: ByteString
+              , jobName :: ByteString
+              , jobRevision :: Maybe ByteString
+              , subLotId :: Maybe ByteString
+              , operatorName :: Maybe ByteString
+              , execType :: Maybe ByteString
+              , execVersion :: Maybe ByteString
+              , testCode :: Maybe ByteString
+              , testTemperature :: Maybe ByteString
+              , userByteString :: Maybe ByteString
+              , auxFile :: Maybe ByteString
+              , packageType :: Maybe ByteString
+              , familyId :: Maybe ByteString
+              , dateCode :: Maybe ByteString
+              , facilityId :: Maybe ByteString
+              , floorId :: Maybe ByteString
+              , processId :: Maybe ByteString
+              , operationFreq :: Maybe ByteString
+              , specName :: Maybe ByteString
+              , specVersion :: Maybe ByteString
+              , flowId :: Maybe ByteString
+              , setupId :: Maybe ByteString
+              , designRev :: Maybe ByteString
+              , engineeringLotId :: Maybe ByteString
+              , romCodeId :: Maybe ByteString
+              , testerSerialNum :: Maybe ByteString
+              , supervisorName :: Maybe ByteString }
         | Mrr { finishTime :: Maybe UTCTime
               , lotDisposition :: Maybe C1
-              , userDescription :: Maybe Text
-              , execDescription :: Maybe Text }
+              , userDescription :: Maybe ByteString
+              , execDescription :: Maybe ByteString }
         | Pcr { headId :: !U1
               , siteId :: !U1
               , partCount :: !U4
@@ -147,22 +151,22 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , bin :: !U2
               , binCount :: !U4
               , passFailBin :: PassFailBin
-              , name :: Maybe Text }
+              , name :: Maybe ByteString }
         | Sbr { headId :: !U1
               , siteId :: !U1
               , bin :: !U2
               , binCount :: !U4
               , passFail :: PassFailBin
-              , name :: Maybe Text }
+              , name :: Maybe ByteString }
         | Pmr { index :: !U2 -- Maybe rather than index reference by name
               , channelType :: Maybe U2
-              , channelName :: Maybe Text
-              , physicalName :: Maybe Text
-              , logicalName :: Maybe Text
+              , channelName :: Maybe ByteString
+              , physicalName :: Maybe ByteString
+              , logicalName :: Maybe ByteString
               , headId :: !U1
               , siteId :: !U1 }
         | Pgr { index :: !U2
-              , name :: Maybe Text
+              , name :: Maybe ByteString
               , pinIndecies :: [U2] } -- list of pins instead of refering to indecies
         -- Parsing: 
         -- Empty arrays (or empty members of arrays) can be omitted 
@@ -174,36 +178,36 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , groupRadixes :: [Radix]
               -- Should really just use a string for state characters
               -- instead of Left/Right but failed since I don't have example PLR
-              -- , programStateChars :: [Text] -- combine CharR and CharL at parse?
-              -- , returnStateChars :: [Text] }
-              , programStateCharsRight :: [Maybe Text]
-              , returnStateCharsRight :: [Maybe Text]
-              , programStateCharsLeft :: [Maybe Text]
-              , returnStateCharsLeft :: [Maybe Text] }
+              -- , programStateChars :: [ByteString] -- combine CharR and CharL at parse?
+              -- , returnStateChars :: [ByteString] }
+              , programStateCharsRight :: [Maybe ByteString]
+              , returnStateCharsRight :: [Maybe ByteString]
+              , programStateCharsLeft :: [Maybe ByteString]
+              , returnStateCharsLeft :: [Maybe ByteString] }
         | Rdr { retestBins :: [U2] }
         | Sdr { headId :: !U1
               , siteGroup :: !U1
               , sites :: [U1]
-              , handlerType :: Maybe Text
-              , handlerId :: Maybe Text
-              , probeCardType :: Maybe Text
-              , probeCardId :: Maybe Text
-              , loadBoardType :: Maybe Text
-              , loadBoardId :: Maybe Text
-              , dibType :: Maybe Text
-              , dibId :: Maybe Text
-              , cableType :: Maybe Text
-              , cableId :: Maybe Text
-              , contactorType :: Maybe Text
-              , contactorId :: Maybe Text
-              , laserType :: Maybe Text
-              , laserId :: Maybe Text
-              , extraType :: Maybe Text
-              , extraId :: Maybe Text }
+              , handlerType :: Maybe ByteString
+              , handlerId :: Maybe ByteString
+              , probeCardType :: Maybe ByteString
+              , probeCardId :: Maybe ByteString
+              , loadBoardType :: Maybe ByteString
+              , loadBoardId :: Maybe ByteString
+              , dibType :: Maybe ByteString
+              , dibId :: Maybe ByteString
+              , cableType :: Maybe ByteString
+              , cableId :: Maybe ByteString
+              , contactorType :: Maybe ByteString
+              , contactorId :: Maybe ByteString
+              , laserType :: Maybe ByteString
+              , laserId :: Maybe ByteString
+              , extraType :: Maybe ByteString
+              , extraId :: Maybe ByteString }
         | Wir { headId :: !U1
               , siteGroup :: !U1 -- 255 -> Nothing -- feature removed
               , startTime :: Maybe UTCTime
-              , waferId :: Maybe Text }
+              , waferId :: Maybe ByteString }
         | Wrr { headId :: !U1
               , siteGroup :: !U1  -- 255 means Nothing
               , finishTime :: Maybe UTCTime
@@ -212,12 +216,12 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , abortCount :: Maybe U4 -- 4,294,967,295 -> Nothing
               , goodCount :: Maybe U4 -- 4,294,967,295 -> Nothing
               , functionalCount :: Maybe U4 -- 4,294,967,295 -> Nothing
-              , waferId :: Maybe Text -- length 0 -> Nothing
-              , fabWaferId :: Maybe Text -- length 0 -> Nothing
-              , waferFrameId :: Maybe Text -- length 0 -> Nothing
-              , waferMaskId :: Maybe Text -- length 0 -> Nothing
-              , userDescription :: Maybe Text -- length 0 -> Nothing
-              , execDescription :: Maybe Text }
+              , waferId :: Maybe ByteString -- length 0 -> Nothing
+              , fabWaferId :: Maybe ByteString -- length 0 -> Nothing
+              , waferFrameId :: Maybe ByteString -- length 0 -> Nothing
+              , waferMaskId :: Maybe ByteString -- length 0 -> Nothing
+              , userDescription :: Maybe ByteString -- length 0 -> Nothing
+              , execDescription :: Maybe ByteString }
         | Wcr { waferSize :: Maybe R4 -- 0 -> Nothing
               , dieHeight :: Maybe R4
               , dieWidth :: Maybe R4
@@ -238,9 +242,9 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
                 , xCoord   :: Maybe I2
                 , yCoord   :: Maybe I2
                 , testTime :: Maybe Milliseconds
-                , partID   :: Maybe Text
-                , partTxt  :: Maybe Text
-                , partFix  :: Maybe Text }
+                , partID   :: Maybe ByteString
+                , partTxt  :: Maybe ByteString
+                , partFix  :: Maybe ByteString }
         | Tsr { headId :: !U1
               , siteId :: !U1
               -- TODO: Json printing testType wierd like
@@ -250,9 +254,9 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , execCount :: Maybe U4
               , failCount :: Maybe U4
               , alarmCount :: Maybe U4
-              , testName :: Maybe Text
-              , sequencerName :: Maybe Text
-              , testLabel :: Maybe Text
+              , testName :: Maybe ByteString
+              , sequencerName :: Maybe ByteString
+              , testLabel :: Maybe ByteString
               , averageSeconds :: Maybe R4
               , valueMin :: Maybe R4 -- may make these another record type like stats
               , valueMax :: Maybe R4
@@ -265,8 +269,8 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , testFlags :: [TestFlag] -- B1 bitfield further parsing bits
               , parametricFlags :: [ParametricFlag] -- B1 bitfield further parsing bits
               , result :: Maybe R4
-              , testText :: Maybe Text
-              -- , alarmId :: Maybe Text -> optionalInfo
+              , testByteString :: Maybe ByteString
+              -- , alarmId :: Maybe ByteString -> optionalInfo
               , info :: Maybe [OptionalInfo] } -- TODO: better name
         | Mpr { testId :: !U4
               , headId :: !U1
@@ -277,9 +281,9 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               -- k , resultCount :: U2
               -- , states :: [U1] -- Nibbles! array of states? j states
               -- , results :: [R4] -- k results
-              -- , testText :: Maybe Text
+              -- , testByteString :: Maybe ByteString
               , info :: Maybe [OptionalInfo] }
-              -- , alarmId :: Maybe Text
+              -- , alarmId :: Maybe ByteString
               -- -- , OPT_FLG B1 optional stuff to parse
               -- , resultExp :: Maybe I1
               -- , lowLimitExp :: Maybe I1
@@ -289,11 +293,11 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               -- , startingInput :: Maybe R4
               -- , incrementInput :: Maybe R4
               -- , returnPinIndecies :: Maybe [U2] -- k indecies
-              -- , units :: Maybe Text
-              -- , unitsInputCondition  :: Maybe Text
-              -- , printfResultFmt :: Maybe Text
-              -- , printfLowLimitFmt :: Maybe Text
-              -- , printfHighLimitFmt :: Maybe Text
+              -- , units :: Maybe ByteString
+              -- , unitsInputCondition  :: Maybe ByteString
+              -- , printfResultFmt :: Maybe ByteString
+              -- , printfLowLimitFmt :: Maybe ByteString
+              -- , printfHighLimitFmt :: Maybe ByteString
               -- , lowSpecLimit :: Maybe R4
               -- , highSpecLimit :: Maybe R4 }
         | Ftr { testId :: !U4
@@ -316,20 +320,20 @@ data Rec= Raw { raw :: Text } -- base64 TODO: URL encoding or maybe don't bother
               , pgmStateIndecies :: Maybe [U2] -- k x U2
               , pgmStates :: Maybe [U1] -- k NIBBLES!
               , failPin :: Maybe [U1] -- bitfield!
-              , vector :: Maybe Text
-              , timeSet :: Maybe Text
-              , opCode :: Maybe Text
-              , testText :: Maybe Text
-              , alarmId :: Maybe Text
-              , programText :: Maybe Text
-              , resultText :: Maybe Text
+              , vector :: Maybe ByteString
+              , timeSet :: Maybe ByteString
+              , opCode :: Maybe ByteString
+              , testByteString :: Maybe ByteString
+              , alarmId :: Maybe ByteString
+              , programByteString :: Maybe ByteString
+              , resultByteString :: Maybe ByteString
               , patternGen :: Maybe U1  -- 255
               , enabledPins :: Maybe [U1] -- bitfield!
               }
-        | Bps { sequencerName :: Maybe Text }  -- Begin Program Secion
+        | Bps { sequencerName :: Maybe ByteString }  -- Begin Program Secion
         | Eps -- End Program Section: no payload
         | Gdr [GdrField]
-        | Dtr { textDat :: Text }
+        | Dtr { textDat :: ByteString }
           deriving (Generic, Show)
 
 data GroupMode = UnknownGroupMode
@@ -381,19 +385,19 @@ data ParametricFlag = ScaleError          -- bit 0
 
 -- TODO: Another pass at scaling flags
 -- Maybe better as sum type
-data OptionalInfo   = Units Text
+data OptionalInfo   = Units ByteString
                     | LowSpecLimit R4
                     | HighSpecLimit R4
-                    | LowSpecLimitStr Text
-                    | HighSpecLimitStr Text
-                    | AlarmId Text
+                    | LowSpecLimitStr ByteString
+                    | HighSpecLimitStr ByteString
+                    | AlarmId ByteString
                     | LowLimit R4
                     | HighLimit R4
-                    | LowLimitStr Text
-                    | HighLimitStr Text
-                    | ResultStr Text
+                    | LowLimitStr ByteString
+                    | HighLimitStr ByteString
+                    | ResultStr ByteString
                     | StartingInput R4
-                    | StartingInputUnits Text
+                    | StartingInputUnits ByteString
                     | IncrementInput R4
                     -- change to a map of pinName -> state
                     | ReturnPinIndecies [U2]  -- k
@@ -409,12 +413,12 @@ data OptionalInfo   = Units Text
                     | PgmStateIndecies [U2] -- k x U2 -> Parse pin states?
                     | PgmStates [U1] -- k NIBBLES! -> String
                     | FailPin [U1] -- bitfield! -> [PinName]
-                    | VectorName Text
-                    | TimeSet Text
-                    | OpCode Text
-                    | Label Text
-                    | ProgramText Text
-                    | ResultText Text
+                    | VectorName ByteString
+                    | TimeSet ByteString
+                    | OpCode ByteString
+                    | Label ByteString
+                    | ProgramByteString ByteString
+                    | ResultByteString ByteString
                     | PatternGen U1  -- 255
                     | EnabledPins [U1] -- bitfield!
                     --
@@ -422,9 +426,9 @@ data OptionalInfo   = Units Text
                     | ResultExp I1
                     | LowLimitExp I1
                     | HighLimitExp I1
-                    | CResultFormat Text
-                    | CLowLimitFormat Text
-                    | CHighLimitFormat Text
+                    | CResultFormat ByteString
+                    | CLowLimitFormat ByteString
+                    | CHighLimitFormat ByteString
                     deriving (Generic, Show, Eq)
 
 data TestType = Parametric
@@ -457,7 +461,7 @@ data GdrField = GPad -- discard
               | GI4 !I4
               | GFloat Float -- parse as CFloat
               | GDouble Double -- parse as CDouble
-              | GStr Text
+              | GStr ByteString
               | GBytes [U1] -- encoded ByteStr
               | GData [U1] -- 2byte length + encoded ByteStr
               | GNibble !U1 -- a nibble? are you fucking kidding me?
