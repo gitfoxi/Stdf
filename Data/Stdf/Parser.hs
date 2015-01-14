@@ -237,7 +237,7 @@ c1 = (chr . fromIntegral) <$> u1
 mc1 :: Get (Maybe C1)
 mc1 = getMaybe c1 ' '
 
-mcn :: Get (Maybe Text)
+mcn :: Get (Maybe Char8.ByteString)
 mcn = getMaybe cn ""
 
 mr4 :: Get (Maybe R4)
@@ -264,7 +264,7 @@ mu4 = do
         4294967295 -> Nothing
         _          -> Just x
 
-cn :: Get Text
+cn :: Get Char8.ByteString
 cn = do
     cnlen <- u1
     case cnlen of
