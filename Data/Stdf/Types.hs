@@ -270,7 +270,7 @@ data Rec =
           , testFlags :: [TestFlag] -- B1 bitfield further parsing bits
           , parametricFlags :: [ParametricFlag] -- B1 bitfield further parsing bits
           , result :: Maybe R4
-          , testByteString :: Maybe ByteString
+          , name :: Maybe ByteString
           -- , alarmId :: Maybe ByteString -> optionalInfo
           , info :: Maybe [OptionalInfo] } -- TODO: better name
     | Mpr { testId :: !U4
@@ -282,7 +282,7 @@ data Rec =
           -- k , resultCount :: U2
           -- , states :: [U1] -- Nibbles! array of states? j states
           -- , results :: [R4] -- k results
-          -- , testByteString :: Maybe ByteString
+          -- , name :: Maybe ByteString
           , info :: Maybe [OptionalInfo] }
           -- , alarmId :: Maybe ByteString
           -- -- , OPT_FLG B1 optional stuff to parse
@@ -324,7 +324,7 @@ data Rec =
           , vector :: Maybe ByteString
           , timeSet :: Maybe ByteString
           , opCode :: Maybe ByteString
-          , testByteString :: Maybe ByteString
+          , name :: Maybe ByteString
           , alarmId :: Maybe ByteString
           , programByteString :: Maybe ByteString
           , resultByteString :: Maybe ByteString
