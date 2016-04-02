@@ -21,7 +21,9 @@ import Data.List.Split (chunksOf)
 
 data XyBin = XyBin { x :: Int
                    , y :: Int
-                   , hbin :: Int }
+                   , hbin :: Int
+                   , rep :: Maybe String
+                   }
            | Missing
     deriving (Show, Eq)
 
@@ -31,7 +33,8 @@ stdfToXyBin (prr@(Prr { xCoord = Just xc
                       , hardBin = hb }):prrs) =
     XyBin { x = fromIntegral xc
           , y = fromIntegral yc
-          , hbin = fromIntegral hb } : stdfToXyBin prrs
+          , hbin = fromIntegral hb
+          , rep = Nothing} : stdfToXyBin prrs
 stdfToXyBin (_:prrs) = stdfToXyBin prrs
 stdfToXyBin [] = []
 
@@ -46,9 +49,10 @@ addmissing (d:ds) (xy:xys)
     | otherwise                      = Missing : addmissing (d:ds) xys
 
 
-binToStr :: Maybe Int -> String
+binToStr ::
+  Maybe String -> String
 binToStr Nothing = "."
-binToStr (Just bn) = show bn
+binToStr (Just bn) = bn
 
 -- sort by y,x
 -- groupby y,x
@@ -89,11 +93,11 @@ gridToString xybs = unlines $ map unwords padded
         pad w s = s ++ replicate (w - length s) ' '
 
         binOrNothing Missing = Nothing
-        binOrNothing XyBin { hbin = hbin } = Just hbin
+        binOrNothing XyBin { rep = Just hbin } = Just hbin
+        binOrNothing XyBin { hbin = hbin } = Just . show $ hbin
 
-        bins = map2d binOrNothing xybs -- start here
         binstrs :: [[String]]
-        binstrs = map2d binToStr bins
+        binstrs = map2d (binToStr . binOrNothing) xybs -- start here
         maxwidth :: Int
         maxwidth = maximum $ (concatMap . map) length binstrs
         padded = map2d (pad maxwidth) binstrs
