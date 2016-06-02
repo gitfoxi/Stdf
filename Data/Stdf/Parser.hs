@@ -16,7 +16,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.ByteString.Char8 as Char8
 import Data.Bits (testBit, (.&.), shiftR)
 import Control.Applicative
-import Prelude hiding (show, Left, Right, replicate)
+import Prelude hiding (Left, Right, replicate)
 import qualified Prelude
 import Control.Monad
 import qualified Data.ByteString.Base64 as Base64
@@ -33,7 +33,7 @@ import Data.Word
 
 import Data.Stdf.Types
 
--- import Debug.Trace
+import Debug.Trace
 
 
 -- JSON gotcha: can't encode ByteString
@@ -440,6 +440,11 @@ getPtr = do
                            cResFmt, cLlmFmt, cHlmFmt, loSpec]
                 return info
 
+getDef :: Show a => a -> Get a -> Get a
+getDef def getter = do
+  e <- isEmpty
+  if e then return def else getter
+
 getMpr :: Get Rec
 getMpr = do
     testNum <- u4
@@ -448,69 +453,63 @@ getMpr = do
     testFlg <- getTestFlags
     parmFlg <- getParametricFlags
 
-    let returnEarly = return $ Mpr testNum headNum siteNum testFlg parmFlg Nothing
+    -- TODO: Must carry state. If these return early then you're supposed
+    -- to fill in the "optional" values with whatever they were set to the
+    -- first time. Uniquely, MPR's TEXT_TXT (name) field is optional
+    --
     -- record may end here if no more info
-	-- TODO: Could use record default values to clean up this if mess
-    e <- isEmpty
-    if e then returnEarly
-    else do
-      j <- fromIntegral <$> u2
-      e <- isEmpty
-      if e then returnEarly
-      else do
-        -- record may end here if no more info
-        k <- fromIntegral <$> u2
-        rtnStat <- if j == 0 then return $ Nothing
-                   else Just . ReturnedStates <$> getNibbles j
-        rtnRslt <- if k == 0 then return $ Nothing else Just .Results <$> replicateM k r4
-        testTxt <- liftA Label <$> mcn
-        alarmId <- liftA AlarmId <$> mcn
-        e <- isEmpty
-        if e then returnEarly
-        else do
-          optFlag  <- u1
-          resScal0 <- i1
-          llmScal0 <- i1
-          hlmScal0 <- i1
-          loLimit0 <- r4
-          hiLimit0 <- r4
-          startIn0 <- r4
-          incrIn0  <- r4
-          rtnIndx0  <- replicateM j u2
-          units    <- liftA Units <$> mcn
-          unitsIn  <- liftA StartingInputUnits <$> mcn
-          cResfmt  <- liftA CResultFormat <$> mcn
-          cLlmfmt  <- liftA CLowLimitFormat <$> mcn
-          cHlmfmt  <- liftA CHighLimitFormat <$> mcn
-          loSpec0  <- r4
-          hiSpec0  <- r4
+    j <- fromIntegral <$> getDef 0 u2
+    -- record may end here if no more info
+    k <- fromIntegral <$> getDef 0 u2
+    rtnStat <- if j == 0 then return $ Nothing
+               else Just . ReturnedStates <$> getNibbles j
+    rtnRslt <- if k == 0 then return $ Nothing else Just .Results <$> replicateM k r4
+    testTxt <- liftA Label <$> (getDef Nothing mcn)
+    alarmId <- liftA AlarmId <$> (getDef Nothing mcn)
 
-          let rtnIndx = if Prelude.null rtnIndx0 then Nothing
-                        else Just $ PinIndecies rtnIndx0
+    optFlag  <- getDef 255 u1
+    -- TODO: Should be given by previous record with the same testId as this
+    -- one if missing:
+    resScal0 <- getDef 0 i1
+    llmScal0 <- getDef 0 i1
+    hlmScal0 <- getDef 0 i1
+    loLimit0 <- getDef 0.0 r4
+    hiLimit0 <- getDef 0.0 r4
+    startIn0 <- getDef 0.00 r4
+    incrIn0  <- getDef 0.00 r4
+    rtnIndx0  <- getDef [] (replicateM j u2)
+    units    <- liftA Units <$> getDef Nothing mcn
+    unitsIn  <- liftA StartingInputUnits <$> getDef Nothing mcn
+    cResfmt  <- liftA CResultFormat <$> getDef Nothing mcn
+    cLlmfmt  <- liftA CLowLimitFormat <$> getDef Nothing mcn
+    cHlmfmt  <- liftA CHighLimitFormat <$> getDef Nothing mcn
+    loSpec0  <- getDef 0.0 r4
+    hiSpec0  <- getDef 0.0 r4
 
-          let  unlessBit b x | testBit optFlag b = Nothing
-                             | otherwise         = Just x
-          let resScal =  unlessBit 0 $ ResultExp resScal0
-          let startIn =  unlessBit 1 $ StartingInput startIn0
-          let incrIn =  unlessBit 1 $ IncrementInput incrIn0
-          let loSpec =  unlessBit 2 $ LowSpecLimit loSpec0
-          let hiSpec =  unlessBit 3 $ HighSpecLimit hiSpec0
-          let loLimit =  unlessBit 4 $ LowLimit loLimit0
-          let llmScal =  unlessBit 4 $ LowLimitExp llmScal0
-          let hiLimit =  unlessBit 5 $ HighLimit hiLimit0
-          let hlmScal =  unlessBit 5 $ HighLimitExp hlmScal0
-          -- Bits 6 and 7 seem completely redundnat with 4 and 5
-          -- I think 6 and 7 mean this test has no limit
-          -- Where 4 and 5 means it has a limit set by a preious record
-          -- I'll leave bits 6 and 7 as TODO.
+    let rtnIndx = if Prelude.null rtnIndx0 then Nothing
+                  else Just $ PinIndecies rtnIndx0
 
-          let info = catMaybes [resScal, llmScal, hlmScal, loLimit, hiLimit, startIn, 
-                                incrIn, rtnIndx, units,  unitsIn, cResfmt, cLlmfmt,
-                                cHlmfmt, loSpec, hiSpec, testTxt, rtnStat, rtnRslt]
+        unlessBit b x | testBit optFlag b = Nothing
+                      | otherwise         = Just x
+        resScal =  unlessBit 0 $ ResultExp resScal0
+        startIn =  unlessBit 1 $ StartingInput startIn0
+        incrIn =  unlessBit 1 $ IncrementInput incrIn0
+        loSpec =  unlessBit 2 $ LowSpecLimit loSpec0
+        hiSpec =  unlessBit 3 $ HighSpecLimit hiSpec0
+        loLimit =  unlessBit 4 $ LowLimit loLimit0
+        llmScal =  unlessBit 4 $ LowLimitExp llmScal0
+        hiLimit =  unlessBit 5 $ HighLimit hiLimit0
+        hlmScal =  unlessBit 5 $ HighLimitExp hlmScal0
+    -- Bits 6 and 7 seem comp   ely redundnat with 4 and 5
+    -- I think 6 and 7 mean this test has no limit
+    -- Where 4 and 5 means it has a limit set by a preious record
+    -- I'll leave bits 6 and 7 as TODO.
 
-          return $ Mpr testNum headNum siteNum testFlg parmFlg (Just info)
+        info = catMaybes [resScal, llmScal, hlmScal, loLimit, hiLimit, startIn, 
+                          incrIn, rtnIndx, units,  unitsIn, cResfmt, cLlmfmt,
+                          cHlmfmt, loSpec, hiSpec, testTxt, rtnStat, rtnRslt]
 
-
+    return $ Mpr testNum headNum siteNum testFlg parmFlg (Just info)
 
 
 -- Take a list of bytes and split into exactly n nibbles
@@ -702,9 +701,19 @@ getRec hdr = do
     return $ processRec hdr record
 
 
--- Attach handlers for specific headers here
+-- | Attach handlers for specific headers here
+-- Check after getting something that the entire record was consumed
 processRec :: Header -> BL.ByteString -> Rec
-processRec hdr = runGet (specificGet hdr)
+processRec hdr = runGet $ do
+  r <- specificGet hdr
+  leftOver <- getRemainingLazyByteString
+  let leftOverBytes = BL.length leftOver 
+  when (leftOverBytes > 0) $ do
+    traceM $ "Warning, " ++ show leftOverBytes ++ " leftover bytes:"
+    traceShowM leftOver
+    traceM "In record:"
+    traceShowM r
+  return r
 
 -- typStdfInfo    = 0
 -- subFar = 10
@@ -777,7 +786,11 @@ specificGet (Header _ 50 10) = getGdr
 specificGet (Header _ 50 30) = getDtr
 
 --
-specificGet (Header hdrlen _ _) = getRawRec hdrlen
+specificGet (Header hdrlen _ _) = do
+  r <- getRawRec hdrlen
+  traceM "Warning, unknown record:"
+  traceShowM r
+  return r
 
 getBinRec :: Get BinRec
 getBinRec = do
